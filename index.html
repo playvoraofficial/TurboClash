@@ -31,21 +31,68 @@
   <div id="replayTag"><div id="replayBadge"><i></i>REPLAY</div><div id="replayWho"></div></div>
 </div>
 
-<div id="menu" class="overlay">
+<div id="choosePlay" class="overlay">
+  <div class="panel play-choice-panel">
+    <h1><span class="tb">TURBO</span><span class="tc">CLASH</span></h1>
+    <p class="choice-subtitle">CHOOSE HOW TO PLAY</p>
+    <div class="username-entry">
+      <label for="usernameInput">YOUR USERNAME</label>
+      <input id="usernameInput" type="text" maxlength="12" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Enter username" aria-describedby="usernameHint">
+      <p id="usernameHint">3-12 characters</p>
+    </div>
+    <button class="big" id="onlineChoice">PLAY AGAINST A REAL PLAYER</button>
+    <button class="big" id="botsChoice">PLAY AGAINST BOTS</button>
+    <button class="big" id="storeBtn">STORE</button>
+  </div>
+</div>
+
+<div id="matchSearch" class="overlay hidden" role="status" aria-live="polite">
+  <div class="panel search-panel">
+    <h1 id="searchHeading">SEARCHING FOR A MATCH</h1>
+    <div class="search-spinner" aria-hidden="true"></div>
+    <p id="searchDetail" class="hidden" aria-live="polite"></p>
+    <button class="btn" id="cancelSearch">CANCEL SEARCH</button>
+  </div>
+</div>
+
+<div id="menu" class="overlay hidden">
   <div class="panel">
     <h1><span class="tb">TURBO</span><span class="tc">CLASH</span></h1>
     <div class="opt"><label>MODE</label><div class="seg" data-key="mode"><button data-v="1" class="on">1 v 1</button><button data-v="2">2 v 2</button><button data-v="3">3 v 3</button></div></div>
-    <div class="opt"><label>BOTS</label><div class="seg" data-key="diff"><button data-v="0">ROOKIE</button><button data-v="1" class="on">PRO</button><button data-v="2">ALL-STAR</button></div></div>
+    <div class="opt"><label id="difficultyLabel">BOTS</label><div class="seg" data-key="diff"><button data-v="0">ROOKIE</button><button data-v="1" class="on">PRO</button><button data-v="2">ALL-STAR</button></div></div>
     <div class="opt"><label>MATCH</label><div class="seg" data-key="len"><button data-v="180">3 MIN</button><button data-v="300" class="on">5 MIN</button><button data-v="600">10 MIN</button></div></div>
     <button class="big" id="playBtn">PLAY</button>
+    <button class="btn back-btn" id="backToChoice">BACK</button>
 
 
   </div>
 </div>
 
+<div id="store" class="overlay hidden">
+  <div class="panel storePanel">
+    <div class="storeHead">
+      <h2>TURBO <span>STORE</span></h2>
+      <div class="seg" id="kindTabs"><button data-k="car" class="on">CARS</button><button data-k="ball">BALLS</button></div>
+      <div class="coinBadge big2"><span class="coinIco"></span><span class="coinVal">0</span></div>
+      <button class="btn" id="storeClose">BACK</button>
+    </div>
+    <div class="storeBody">
+      <div class="viewer">
+        <canvas id="storeView"></canvas>
+        <div class="svInfo"><div id="svName"></div><div id="svRarity"></div></div>
+        <button class="big svAct" id="svAction">EQUIP</button>
+      </div>
+      <div class="storeList">
+        <div class="seg" id="storeTabs"><button data-f="all" class="on">ALL</button><button data-f="0">COMMON</button><button data-f="1">RARE</button><button data-f="2">EPIC</button><button data-f="3">LEGENDARY</button><button data-f="owned">OWNED</button></div>
+        <div id="skinGrid"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="pause" class="overlay hidden">
   <div class="panel">
-    <h1>PAUSED</h1>
+    <h1 id="pauseTitle">PAUSED</h1>
     <div class="row"><button class="btn" id="resumeBtn">RESUME</button><button class="btn" id="restartBtn">RESTART</button><button class="btn" id="quitBtn">QUIT TO MENU</button></div>
   </div>
 </div>
@@ -55,12 +102,16 @@
     <div id="result">VICTORY</div>
     <div id="finalScore"></div>
     <table id="stats"></table>
+    <div id="coinGain"></div>
     <div class="row"><button class="btn" id="againBtn">REMATCH</button><button class="btn" id="menuBtn">MAIN MENU</button></div>
   </div>
 </div>
 
 <div id="loading"><div>TURBOCLASH</div><div class="bar"><i></i></div></div>
 
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/dist/umd/supabase.min.js" defer></script>
+<script src="multiplayer.js"></script>
 <script src="script.js"></script>
 </body>
 </html>
