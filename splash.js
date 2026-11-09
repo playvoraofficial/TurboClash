@@ -38,7 +38,7 @@
             if (finished || !splashNoise)
                 return;
             var t = Math.min(1, (now - fadeStart) / 3000);
-            splashNoise.volume = startVolume * (1 - t);
+            splashNoise.volume = Math.max(0, Math.min(1, startVolume * (1 - t)));
             if (t < 1) {
                 fadeRaf = requestAnimationFrame(step);
             }
