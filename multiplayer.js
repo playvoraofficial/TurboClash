@@ -150,7 +150,7 @@
     }
     if (API.isHost && API.active && packet.type==='input') {
       if (packet.seat!==peer.seat || !Array.isArray(packet.controls) || packet.controls.length!==7) return;
-      if (API.onInput) API.onInput({seat:peer.seat,controls:packet.controls});
+      if (API.onInput) API.onInput({seat:peer.seat,controls:packet.controls,seq:Number.isInteger(packet.seq)?packet.seq:null});
     } else if (!API.isHost && packet.type==='snapshot') applySnapshot(packet);
   }
   function bindChannel(peer,channel) {
@@ -329,14 +329,15 @@
       throw err;
     }
   }
-  function sendInput(controls) {
+  function sendInput(controls, seq) {
     if (!API.active || API.isHost) return;
     const host=API.peers.get(0);
     if (!host) return;
+    if (host.state && host.state.readyState==='open' && host.state.bufferedAmount<65536) {
+      try { host.state.send(JSON.stringify({type:'input',seat:API.seat,controls,seq})); return; } catch (_) {}
+    }
     if (host.control && host.control.readyState==='open' && host.control.bufferedAmount<65536) {
-      sendControl(host,{type:'input',seat:API.seat,controls});
-    } else if (host.state && host.state.readyState==='open' && host.state.bufferedAmount<65536) {
-      host.state.send(JSON.stringify({type:'input',seat:API.seat,controls}));
+      sendControl(host,{type:'input',seat:API.seat,controls,seq});
     }
   }
   function sendSnapshot(snapshot) {
