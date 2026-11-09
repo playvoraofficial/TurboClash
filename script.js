@@ -1096,7 +1096,7 @@ function drawJumbo() {
         drawPlayvora(g, W / 2 + 160, H - 52, 40);
         g.fillStyle = '#9fb3d9';
         g.textAlign = 'center';
-        g.fillText('•', W / 2 + 8, H - 52);
+        g.fillText('\u2022', W / 2 + 8, H - 52);
     }
     g.fillStyle = 'rgba(0,0,0,.22)';
     for (let y = 0; y < H; y += 4)
@@ -2781,7 +2781,7 @@ function endMatch() {
     const win = scoreArr[0] > scoreArr[1] ? 0 : 1, r = $('result');
     r.textContent = win === (player ? player.team : 0) ? 'VICTORY' : 'DEFEAT';
     r.style.color = win === 0 ? TEAM_CSS[0] : TEAM_CSS[1];
-    $('finalScore').innerHTML = `<span style="color:${TEAM_CSS[0]}">${scoreArr[0]}</span> &nbsp;—&nbsp; <span style="color:${TEAM_CSS[1]}">${scoreArr[1]}</span>`;
+    $('finalScore').innerHTML = `<span style="color:${TEAM_CSS[0]}">${scoreArr[0]}</span> &nbsp;&mdash;&nbsp; <span style="color:${TEAM_CSS[1]}">${scoreArr[1]}</span>`;
     let h = '<tr><th>PLAYER</th><th>GOALS</th><th>SHOTS</th><th>SAVES</th><th>TOUCHES</th></tr>';
     for (const c of [...cars].sort((a, b) => a.team - b.team || b.stats.goals - a.stats.goals))
         h += `<tr class="${c.team ? 'to' : 'tb'} ${c.human ? 'me' : ''}"><td>${c.name}</td><td>${c.stats.goals}</td><td>${c.stats.shots}</td><td>${c.stats.saves}</td><td>${c.stats.touches}</td></tr>`;
