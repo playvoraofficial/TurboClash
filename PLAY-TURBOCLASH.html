@@ -118,6 +118,74 @@ html.pv-splash-active,body.pv-splash-active {
   #playvoraSplash .nsTxt .vora{color:#d6a2ff;}
 #pause h1{font-size:54px}
 
+#choosePlay,#matchSearch{z-index:30}
+.play-choice-panel{min-width:min(520px,94vw)}
+.choice-subtitle{font-weight:800;letter-spacing:3px;color:#a8b8e2;margin:14px 0 24px}
+#choosePlay .big + .big{margin-top:12px}
+.username-entry{display:flex;flex-direction:column;align-items:stretch;gap:9px;margin:5px 0 23px;text-align:left}
+.username-entry label{font-size:13px;font-weight:900;letter-spacing:2px;color:#b6c8f8}
+#usernameInput{font:inherit;width:100%;box-sizing:border-box;padding:13px 16px;border:1px solid #354673;background:#111a32;color:#fff;border-radius:9px;outline:none;box-shadow:none;font-size:19px;font-weight:750;letter-spacing:.4px;user-select:text;-webkit-user-select:text}
+#usernameInput::placeholder{color:#7686a8}
+#usernameInput:focus{border-color:#4b97ff;outline:none;box-shadow:none}
+#usernameHint{font-size:12px;color:#a8b8e2;text-align:left}
+
+.back-btn{margin-top:14px;width:100%}
+#difficultyLabel{min-width:100px;text-align:left}
+.search-panel{max-width:580px;min-width:min(480px,92vw);padding:38px 30px}
+#searchHeading{font-size:clamp(24px,4vw,37px);line-height:1.15;margin:0 0 18px;letter-spacing:1px}
+#searchDetail{color:#b8c4e4;font-size:15px;margin:18px 0 24px;line-height:1.55}
+.search-spinner{width:64px;height:64px;margin:24px auto 27px;border-radius:50%;background:conic-gradient(from 0deg,#358dff 0deg 72deg,transparent 73deg 177deg,#ff4545 178deg 250deg,transparent 251deg 360deg);-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 8px),#000 calc(100% - 7px));mask:radial-gradient(farthest-side,transparent calc(100% - 8px),#000 calc(100% - 7px));animation:tcSpin .85s linear infinite}
+@keyframes tcSpin{to{transform:rotate(360deg)}}
+#searchDetail.hidden{display:none!important}
+#matchSearch .search-panel .btn{margin-top:0}
+@media(max-width:620px){.panel{min-width:unset;width:95vw;padding:20px 15px}h1{font-size:50px}.opt{gap:8px}.opt label{font-size:11px;letter-spacing:1px}.seg{gap:3px}.seg button{padding:8px 6px;letter-spacing:0;font-size:11px}#difficultyLabel{min-width:unset}.big{font-size:18px;letter-spacing:1px}}
+
+.coinIco{display:inline-block;width:1em;height:1em;vertical-align:-.14em;margin-right:.3em;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3CradialGradient id='g' cx='.36' cy='.3' r='.75'%3E%3Cstop offset='0' stop-color='%23fff2a8'/%3E%3Cstop offset='.5' stop-color='%23ffc928'/%3E%3Cstop offset='1' stop-color='%23d18f00'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='16' cy='16' r='15.5' fill='url%28%23g%29'/%3E%3Cpath d='M5.5 19.6 6.6 16 11 15.2 13.6 11.6h6.2l3 3.6 3.2.7 1 3.7z' fill='%239a6500'/%3E%3Cpath d='M14.3 12.7h5l2 2.3h-8.7z' fill='%23ffd45a'/%3E%3Ccircle cx='10.6' cy='20' r='2.4' fill='%239a6500'/%3E%3Ccircle cx='21.6' cy='20' r='2.4' fill='%239a6500'/%3E%3Ccircle cx='10.6' cy='20' r='.9' fill='%23ffd45a'/%3E%3Ccircle cx='21.6' cy='20' r='.9' fill='%23ffd45a'/%3E%3C/svg%3E") center/contain no-repeat}
+.coinBadge{font-weight:900;font-size:18px;color:#ffd257;letter-spacing:1px;white-space:nowrap}
+#coinGain{margin-top:14px;font-weight:900;font-size:20px;color:#ffd257;letter-spacing:1px}
+#coinGain small{display:block;font-size:12px;color:#8fa3d8;font-weight:700;letter-spacing:1px;margin-top:3px}
+.storePanel{width:min(1220px,96vw);padding:22px 26px;text-align:left}
+.storeHead{display:flex;align-items:center;gap:18px;margin-bottom:14px}
+.storeHead h2{font-size:36px;font-weight:900;font-style:italic;letter-spacing:2px;color:#4b97ff;flex:1}
+.storeHead h2 span{color:#ff4545}
+#kindTabs button{padding:9px 22px;font-size:15px;letter-spacing:2px}
+.coinBadge.big2{font-size:24px;background:#0006;border:1px solid #ffcc3340;border-radius:8px;padding:6px 14px}
+.storeBody{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:20px}
+.viewer{position:relative;border-radius:12px;overflow:hidden;border:1px solid #ffffff1a;background:radial-gradient(ellipse at 50% 38%,#2a3558,#0c1122 70%,#070a14);display:flex;flex-direction:column}
+#storeView{display:block;width:100%;height:min(58vh,470px);cursor:grab;touch-action:none}
+#storeView.grab{cursor:grabbing}
+.svInfo{position:absolute;left:18px;top:14px;pointer-events:none}
+#svRarity{font-size:12px;font-weight:900;letter-spacing:3px;margin-top:2px}
+#svName{font-size:30px;font-weight:900;font-style:italic;letter-spacing:1px;color:#fff;text-shadow:0 3px 12px #000}
+.svAct{margin:0;border-radius:0;font-size:22px;padding:14px}
+.svAct.buy{background:linear-gradient(90deg,#b07a00,#ffcc33,#b07a00);background-size:200% 100%;color:#1a1200}
+.svAct.done{background:#1e7a3e;cursor:default;opacity:.9}
+.svAct.locked{background:#2a2f40;color:#7c849c;cursor:not-allowed;filter:grayscale(1)}
+.storeList{display:flex;flex-direction:column;min-height:0}
+#storeTabs{flex-wrap:wrap;margin-bottom:12px}
+#storeTabs button{padding:7px 11px;font-size:12px}
+#skinGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));grid-auto-rows:max-content;align-content:start;gap:10px;overflow-y:auto;max-height:calc(min(58vh,470px) + 6px);padding:8px 10px 6px 4px;margin:-8px 0 0 -4px}
+#store *::-webkit-scrollbar{width:11px;height:11px}
+#store *::-webkit-scrollbar-track{background:#0b1022;border-radius:20px;margin:8px 0}
+#store *::-webkit-scrollbar-thumb{background:linear-gradient(180deg,#4b97ff,#1f5fd6);border:2px solid #0b1022;border-radius:20px;min-height:40px}
+#store *::-webkit-scrollbar-thumb:hover{background:linear-gradient(180deg,#ff5a5a,#c4121c)}
+#store *::-webkit-scrollbar-thumb:active{background:linear-gradient(180deg,#ff4545,#9e0e17)}
+#store *::-webkit-scrollbar-button{display:none;width:0;height:0}
+#store *::-webkit-scrollbar-corner{background:transparent}
+@supports not selector(::-webkit-scrollbar){#store *{scrollbar-color:#3d86ff #0b1022;scrollbar-width:thin}}
+.skinCard{background:#0f1529;border:1px solid #ffffff14;border-bottom:3px solid var(--rc);border-radius:8px;cursor:pointer;overflow:hidden;transition:transform .1s,border-color .1s}
+.skinCard:hover{transform:translateY(-3px);border-color:#ffffff40}
+.skinCard.sel{border-color:#fff;box-shadow:0 0 0 2px var(--rc),0 6px 20px #0008}
+.skinCard:hover,.skinCard.sel,.skinCard.sel:hover{border-bottom-color:var(--rc)}
+.skinCard img{display:block;width:100%;aspect-ratio:240/150;background:radial-gradient(ellipse at 50% 40%,#25304f,#0b1020);opacity:0;transition:opacity .3s}
+.skinCard img.ready{opacity:1}
+.scName{font-weight:900;font-style:italic;font-size:13px;padding:6px 8px 2px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.scFoot{display:flex;justify-content:space-between;align-items:center;padding:0 8px 7px;font-size:10px;letter-spacing:1px}
+.scFoot i{font-style:normal;font-weight:800;color:var(--rc)}
+.tagPrice{color:#ffd257;font-size:12px}.tagOwn{color:#8fa3d8}.tagEq{color:#3ddc84}
+@media (max-width:860px){.storeBody{grid-template-columns:1fr}#storeView{height:42vh}#skinGrid{max-height:none}.storePanel{max-height:96vh;overflow-y:auto}}
+#searchDetail .pvName{white-space:nowrap}
+#searchDetail .vora{color:#c991ff}
 </style>
 
 
@@ -173,7 +241,7 @@ html.pv-splash-active,body.pv-splash-active {
             if (finished || !splashNoise)
                 return;
             var t = Math.min(1, (now - fadeStart) / 3000);
-            splashNoise.volume = startVolume * (1 - t);
+            splashNoise.volume = Math.max(0, Math.min(1, startVolume * (1 - t)));
             if (t < 1) {
                 fadeRaf = requestAnimationFrame(step);
             }
@@ -220,7 +288,6 @@ html.pv-splash-active,body.pv-splash-active {
     setTimeout(finishSplash, 9500);
 })();
 
-
 </script>
 <canvas id="gl"></canvas>
 <div id="vignette"></div>
@@ -234,21 +301,68 @@ html.pv-splash-active,body.pv-splash-active {
   <div id="replayTag"><div id="replayBadge"><i></i>REPLAY</div><div id="replayWho"></div></div>
 </div>
 
-<div id="menu" class="overlay">
+<div id="choosePlay" class="overlay">
+  <div class="panel play-choice-panel">
+    <h1><span class="tb">TURBO</span><span class="tc">CLASH</span></h1>
+    <p class="choice-subtitle">CHOOSE HOW TO PLAY</p>
+    <div class="username-entry">
+      <label for="usernameInput">YOUR USERNAME</label>
+      <input id="usernameInput" type="text" maxlength="12" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Enter username" aria-describedby="usernameHint">
+      <p id="usernameHint">3-12 characters</p>
+    </div>
+    <button class="big" id="onlineChoice">PLAY AGAINST A REAL PLAYER</button>
+    <button class="big" id="botsChoice">PLAY AGAINST BOTS</button>
+    <button class="big" id="storeBtn">STORE</button>
+  </div>
+</div>
+
+<div id="matchSearch" class="overlay hidden" role="status" aria-live="polite">
+  <div class="panel search-panel">
+    <h1 id="searchHeading">SEARCHING FOR A MATCH</h1>
+    <div class="search-spinner" aria-hidden="true"></div>
+    <p id="searchDetail" class="hidden" aria-live="polite"></p>
+    <button class="btn" id="cancelSearch">CANCEL SEARCH</button>
+  </div>
+</div>
+
+<div id="menu" class="overlay hidden">
   <div class="panel">
     <h1><span class="tb">TURBO</span><span class="tc">CLASH</span></h1>
     <div class="opt"><label>MODE</label><div class="seg" data-key="mode"><button data-v="1" class="on">1 v 1</button><button data-v="2">2 v 2</button><button data-v="3">3 v 3</button></div></div>
-    <div class="opt"><label>BOTS</label><div class="seg" data-key="diff"><button data-v="0">ROOKIE</button><button data-v="1" class="on">PRO</button><button data-v="2">ALL-STAR</button></div></div>
+    <div class="opt"><label id="difficultyLabel">BOTS</label><div class="seg" data-key="diff"><button data-v="0">ROOKIE</button><button data-v="1" class="on">PRO</button><button data-v="2">ALL-STAR</button></div></div>
     <div class="opt"><label>MATCH</label><div class="seg" data-key="len"><button data-v="180">3 MIN</button><button data-v="300" class="on">5 MIN</button><button data-v="600">10 MIN</button></div></div>
     <button class="big" id="playBtn">PLAY</button>
+    <button class="btn back-btn" id="backToChoice">BACK</button>
 
 
   </div>
 </div>
 
+<div id="store" class="overlay hidden">
+  <div class="panel storePanel">
+    <div class="storeHead">
+      <h2>TURBO <span>STORE</span></h2>
+      <div class="seg" id="kindTabs"><button data-k="car" class="on">CARS</button><button data-k="ball">BALLS</button></div>
+      <div class="coinBadge big2"><span class="coinIco"></span><span class="coinVal">0</span></div>
+      <button class="btn" id="storeClose">BACK</button>
+    </div>
+    <div class="storeBody">
+      <div class="viewer">
+        <canvas id="storeView"></canvas>
+        <div class="svInfo"><div id="svName"></div><div id="svRarity"></div></div>
+        <button class="big svAct" id="svAction">EQUIP</button>
+      </div>
+      <div class="storeList">
+        <div class="seg" id="storeTabs"><button data-f="all" class="on">ALL</button><button data-f="0">COMMON</button><button data-f="1">RARE</button><button data-f="2">EPIC</button><button data-f="3">LEGENDARY</button><button data-f="owned">OWNED</button></div>
+        <div id="skinGrid"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="pause" class="overlay hidden">
   <div class="panel">
-    <h1>PAUSED</h1>
+    <h1 id="pauseTitle">PAUSED</h1>
     <div class="row"><button class="btn" id="resumeBtn">RESUME</button><button class="btn" id="restartBtn">RESTART</button><button class="btn" id="quitBtn">QUIT TO MENU</button></div>
   </div>
 </div>
@@ -258,12 +372,407 @@ html.pv-splash-active,body.pv-splash-active {
     <div id="result">VICTORY</div>
     <div id="finalScore"></div>
     <table id="stats"></table>
+    <div id="coinGain"></div>
     <div class="row"><button class="btn" id="againBtn">REMATCH</button><button class="btn" id="menuBtn">MAIN MENU</button></div>
   </div>
 </div>
 
 <div id="loading"><div>TURBOCLASH</div><div class="bar"><i></i></div></div>
 
+<script>
+window.PLAYVORA_GAMES = {
+  url: 'https://swxfwthgvloeujifarmj.supabase.co',
+  publishableKey: 'sb_publishable_EAixfylKsTCG9wJS-RDEag_uTakdepY'
+};
+
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.0/dist/umd/supabase.min.js" defer></script>
+<script>
+(() => {
+  const DEFAULT_LOST = 'Player disconnected. Match ended.';
+  const RTC_CONFIG = { iceServers: [
+    { urls: ['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302'] }
+  ] };
+  const API = {
+    client: null, user: null, room: null, seat: -1, members: [], isHost: false,
+    username: 'You', names: new Map(), skin: 'stock', skins: new Map(), onSkin: null,
+    peers: new Map(), pendingCandidates: new Map(),
+    polling: null, heartbeat: null, signalPolling: null, p2pHeartbeat: null, connectTimer: null,
+    searchTimeout: null, startupWatch: null,
+    finding: false, starting: false, active: false, ending: false,
+    lastPacket: 0, readyAt: 0, signalCursor: 0, signalBusy: false,
+    snapshotSeq: 0, receivedSnapshotSeq: 0,
+    onFound: null, onStart: null, onSnapshot: null, onInput: null, onLost: null
+  };
+  const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+  const errorText = err => (err && err.message) || String(err);
+  const sessionKey = 'turboclash-p2p-tab-v1';
+  function validUsername(name) { return typeof name === 'string' && /^[A-Za-z0-9_]{3,12}$/.test(name); }
+  function receivedName(name, seat) {
+    if (Number.isInteger(seat) && seat >= 0 && seat < 6 && validUsername(name)) API.names.set(seat,name);
+  }
+  function receivedSkin(id, seat) {
+    if (Number.isInteger(seat) && seat >= 0 && seat < 6 && typeof id === 'string' && /^[a-z]{2,16}$/.test(id)) { API.skins.set(seat,id); return true; }
+    return false;
+  }
+  function validRoom() { return !!API.room && (API.starting || API.active); }
+  function cleanTimers() {
+    for (const x of ['polling','heartbeat','signalPolling','startupWatch','p2pHeartbeat']) {
+      if (API[x]) clearInterval(API[x]); API[x] = null;
+    }
+    for (const x of ['searchTimeout','connectTimer']) {
+      if (API[x]) clearTimeout(API[x]); API[x] = null;
+    }
+  }
+  async function connect() {
+    const cfg = window.PLAYVORA_GAMES || {};
+    if (!/^https:\/\/[^/]+\.supabase\.co$/.test(cfg.url || '') || !(cfg.publishableKey || '').startsWith('sb_publishable_')) {
+      throw new Error('Playvora games matchmaking is not configured.');
+    }
+    if (!window.supabase || !window.supabase.createClient) throw new Error('Could not load online matchmaking. Check your connection.');
+    if (!window.RTCPeerConnection) throw new Error('Peer-to-peer play needs a browser with WebRTC support and HTTPS.');
+    if (!API.client) {
+      let storage;
+      try {
+        storage = window.sessionStorage;
+        const k = '__tc_storage_test__'; storage.setItem(k,'1'); storage.removeItem(k);
+      } catch (_) {
+        const mem = new Map();
+        storage = { getItem:k=>mem.get(k)??null, setItem:(k,v)=>mem.set(k,v), removeItem:k=>mem.delete(k) };
+      }
+      API.client = window.supabase.createClient(cfg.url,cfg.publishableKey,{
+        auth:{ storage,storageKey:sessionKey,persistSession:true,autoRefreshToken:true,detectSessionInUrl:false }
+      });
+    }
+    const result = await API.client.auth.getSession();
+    if (result.error) throw result.error;
+    let user = result.data && result.data.session && result.data.session.user;
+    if (!user) {
+      const signIn = await API.client.auth.signInAnonymously();
+      if (signIn.error) throw Error('Guest sign-in failed: '+signIn.error.message+'. Enable Anonymous Sign-Ins in Supabase.');
+      user = signIn.data.user;
+    }
+    if (!user) throw Error('Could not sign in to matchmaking.');
+    API.user = user;
+  }
+  async function rpc(name,args={}) {
+    const {data,error}=await API.client.rpc(name,args);
+    if (error) throw error;
+    return data;
+  }
+  function memberBySeat(seat) { return API.members.find(p=>p.seat===seat); }
+  function peerByUser(userId) { return [...API.peers.values()].find(p=>p.userId===userId); }
+  async function signal(to,message) {
+    if (!validRoom()) return;
+    await rpc('tc_signal_send',{p_room:API.room,p_to:to,p_message:message});
+  }
+  function stopSignaling() {
+    if (API.signalPolling) clearInterval(API.signalPolling);
+    API.signalPolling = null;
+  }
+  function peerConnected(peer) {
+    return peer && peer.control && peer.control.readyState === 'open' &&
+      peer.state && peer.state.readyState === 'open' && peer.pc &&
+      peer.pc.connectionState === 'connected';
+  }
+  function startHostIfReady() {
+    if (!API.isHost || !API.starting || API.active || !validRoom()) return;
+    if (API.peers.size !== API.members.length-1 || ![...API.peers.values()].every(peerConnected)) return;
+    if (Date.now()-API.readyAt < 3000) return;
+    API.starting=false; API.active=true;
+    clearTimeout(API.connectTimer); API.connectTimer=null;
+    clearInterval(API.startupWatch); API.startupWatch=null;
+    stopSignaling();
+    for (const p of API.peers.values()) sendControl(p,{type:'start',names:Object.fromEntries(API.names),skins:Object.fromEntries(API.skins)});
+    if (API.onStart) API.onStart();
+  }
+  function sendControl(peer,packet) {
+    if (peer && peer.control && peer.control.readyState==='open') {
+      try { peer.control.send(JSON.stringify(packet)); return true; } catch (_) {}
+    }
+    return false;
+  }
+  function startGuest() {
+    if (!validRoom() || API.active || !API.starting) return;
+    const delay = Math.max(0,3000-(Date.now()-API.readyAt));
+    setTimeout(()=>{
+      if (!validRoom() || API.active || !API.starting) return;
+      API.starting=false; API.active=true;
+      clearTimeout(API.connectTimer); API.connectTimer=null;
+      clearInterval(API.startupWatch); API.startupWatch=null;
+      stopSignaling();
+      API.lastPacket=Date.now();
+      if (API.onStart) API.onStart();
+    },delay);
+  }
+  function detectDisconnect(peer) {
+    if (!validRoom() || API.ending || peer.disconnectTimer) return;
+    peer.disconnectTimer = setTimeout(()=>{
+      peer.disconnectTimer=null;
+      if (validRoom() && !peerConnected(peer)) lost(DEFAULT_LOST,'disconnect');
+    },6000);
+  }
+  function applySnapshot(packet) {
+    if (!API.active || API.isHost || !packet.data || !Array.isArray(packet.data.cars)) return;
+    if (!Number.isInteger(packet.seq) || packet.seq <= API.receivedSnapshotSeq) return;
+    API.receivedSnapshotSeq=packet.seq;
+    API.lastPacket=Date.now();
+    if (API.onSnapshot) API.onSnapshot(packet.data);
+  }
+  function handleData(peer,data) {
+    let packet;
+    try { packet=JSON.parse(data); } catch (_) { return; }
+    if (!packet || typeof packet !== 'object') return;
+    if (packet.type==='leaving') { lost(DEFAULT_LOST,'disconnect'); return; }
+    if (packet.type==='start' && !API.isHost) {
+      if (packet.names && typeof packet.names==='object') {
+        for (const [seat,name] of Object.entries(packet.names)) receivedName(name,Number(seat));
+      }
+      if (packet.skins && typeof packet.skins==='object') {
+        for (const [seat,id] of Object.entries(packet.skins)) receivedSkin(id,Number(seat));
+      }
+      startGuest(); return;
+    }
+    if (packet.type==='ping') { peer.lastSeen=Date.now(); return; }
+    if (packet.type==='skin') {
+      if (API.isHost && receivedSkin(packet.skin,peer.seat) && API.onSkin) API.onSkin(peer.seat,packet.skin);
+      return;
+    }
+    if (API.isHost && API.active && packet.type==='input') {
+      if (packet.seat!==peer.seat || !Array.isArray(packet.controls) || packet.controls.length!==7) return;
+      if (API.onInput) API.onInput({seat:peer.seat,controls:packet.controls});
+    } else if (!API.isHost && packet.type==='snapshot') applySnapshot(packet);
+  }
+  function bindChannel(peer,channel) {
+    if (channel.label==='control') peer.control=channel;
+    else if (channel.label==='state') peer.state=channel;
+    else { channel.close(); return; }
+    channel.onopen=()=>{
+      peer.lastSeen=Date.now();
+      if (channel.label==='control' && !API.isHost) sendControl(peer,{type:'skin',skin:API.skin});
+      if (peer.disconnectTimer) clearTimeout(peer.disconnectTimer);
+      peer.disconnectTimer=null;
+      startHostIfReady();
+    };
+    channel.onclose=()=>detectDisconnect(peer);
+    channel.onerror=()=>detectDisconnect(peer);
+    channel.onmessage=ev=>{
+      peer.lastSeen=Date.now();
+      handleData(peer,ev.data);
+    };
+  }
+  function makePeer(member,makeOffer) {
+    if (API.peers.has(member.seat)) return API.peers.get(member.seat);
+    const peer={seat:member.seat,userId:member.user_id,pc:new RTCPeerConnection(RTC_CONFIG),
+      control:null,state:null,disconnectTimer:null,lastSeen:Date.now()};
+    API.peers.set(member.seat,peer);
+    peer.pc.onicecandidate=ev=>{
+      if (ev.candidate && validRoom()) signal(peer.userId,{kind:'candidate',candidate:ev.candidate.toJSON()})
+        .catch(err=>{ if(validRoom()) lost('Peer connection signaling failed: '+errorText(err),'error'); });
+    };
+    peer.pc.onconnectionstatechange=()=>{
+      if (!validRoom()) return;
+      if (peer.pc.connectionState==='connected') {
+        if (peer.disconnectTimer) clearTimeout(peer.disconnectTimer);
+        peer.disconnectTimer=null;
+        startHostIfReady();
+      } else if (peer.pc.connectionState==='failed' || peer.pc.connectionState==='disconnected' || peer.pc.connectionState==='closed') {
+        detectDisconnect(peer);
+      }
+    };
+    if (makeOffer) {
+      bindChannel(peer,peer.pc.createDataChannel('control'));
+      bindChannel(peer,peer.pc.createDataChannel('state',{ordered:false,maxRetransmits:0}));
+    } else {
+      peer.pc.ondatachannel=event=>bindChannel(peer,event.channel);
+    }
+    return peer;
+  }
+  async function flushCandidates(peer) {
+    if (!peer.pc.remoteDescription) return;
+    const queued=API.pendingCandidates.get(peer.userId) || [];
+    API.pendingCandidates.delete(peer.userId);
+    for (const candidate of queued) {
+      try { await peer.pc.addIceCandidate(candidate); } catch(err) { console.warn('Ignored invalid ICE candidate',err); }
+    }
+  }
+  async function processSignal(signalRow) {
+    const data=signalRow.message;
+    if (!data || !['offer','answer','candidate'].includes(data.kind)) return;
+    const member=API.members.find(x=>x.user_id===signalRow.sender);
+    if (!member || member.seat===API.seat) return;
+    if (data.kind==='offer' || data.kind==='answer') receivedName(data.username,member.seat);
+    if (API.isHost && member.seat===0) return;
+    if (!API.isHost && member.seat!==0) return;
+    if (data.kind==='candidate') {
+      const peer=peerByUser(signalRow.sender);
+      if (!peer || !peer.pc.remoteDescription) {
+        const queued=API.pendingCandidates.get(signalRow.sender)||[];
+        if (queued.length<64) queued.push(data.candidate);
+        API.pendingCandidates.set(signalRow.sender,queued);
+      } else {
+        try { await peer.pc.addIceCandidate(data.candidate); } catch(_) {}
+      }
+      return;
+    }
+    if (data.kind==='offer' && !API.isHost) {
+      const peer=makePeer(member,false);
+      await peer.pc.setRemoteDescription({type:'offer',sdp:data.sdp});
+      await flushCandidates(peer);
+      const answer=await peer.pc.createAnswer();
+      await peer.pc.setLocalDescription(answer);
+      await signal(peer.userId,{kind:'answer',sdp:peer.pc.localDescription.sdp,username:API.username});
+    } else if (data.kind==='answer' && API.isHost) {
+      const peer=peerByUser(signalRow.sender);
+      if (peer && !peer.pc.remoteDescription) {
+        await peer.pc.setRemoteDescription({type:'answer',sdp:data.sdp});
+        await flushCandidates(peer);
+      }
+    }
+  }
+  async function pollSignals() {
+    if (!validRoom() || API.signalBusy) return;
+    API.signalBusy=true;
+    try {
+      const messages=await rpc('tc_signal_poll',{p_after:API.signalCursor});
+      if (!validRoom()) return;
+      for (const m of messages || []) {
+        if (m.id<=API.signalCursor) continue;
+        await processSignal(m);
+        API.signalCursor=m.id;
+      }
+    } catch(err) {
+      if(validRoom()) lost('Peer connection setup failed: '+errorText(err),'error');
+    } finally { API.signalBusy=false; }
+  }
+  async function connectPeers() {
+    if (!validRoom()) return;
+    API.connectTimer=setTimeout(()=>{
+      if (validRoom() && !API.active) lost('Could not establish a direct player connection. Some networks need a TURN relay.','error');
+    },45000);
+    API.startupWatch=setInterval(startHostIfReady,180);
+    API.p2pHeartbeat=setInterval(()=>{
+      if (!API.active || API.ending) return;
+      const now=Date.now();
+      for (const peer of API.peers.values()) {
+        if (now-peer.lastSeen>14000) { lost(DEFAULT_LOST,'disconnect'); return; }
+        sendControl(peer,{type:'ping'});
+      }
+    },3000);
+    API.signalPolling=setInterval(pollSignals,650);
+    await pollSignals();
+    if (!validRoom()) return;
+    if (API.isHost) {
+      for (const member of API.members) {
+        if (member.seat===API.seat) continue;
+        const peer=makePeer(member,true);
+        const offer=await peer.pc.createOffer();
+        await peer.pc.setLocalDescription(offer);
+        await signal(peer.userId,{kind:'offer',sdp:peer.pc.localDescription.sdp,username:API.username});
+      }
+    }
+  }
+  async function search(settings) {
+    await cancel();
+    API.finding=true; API.starting=false; API.active=false; API.ending=false;
+    try {
+      await connect();
+      if (!API.finding) return;
+      await rpc('tc_leave');
+      if (!API.finding) return;
+      const ticket=await rpc('tc_join',{p_mode:settings.mode,p_duration:settings.len,p_skill:settings.diff});
+      if (!API.finding) { API.room=ticket.room_id; await cancel(); return; }
+      API.room=ticket.room_id; API.seat=ticket.seat; API.isHost=ticket.seat===0;
+      API.members=[]; API.signalCursor=0; API.snapshotSeq=0; API.receivedSnapshotSeq=0;
+      API.names.clear(); receivedName(API.username,API.seat);
+      API.skins.clear(); receivedSkin(API.skin,API.seat);
+      API.heartbeat=setInterval(async()=>{
+        if (!API.room) return;
+        try {
+          const st=await rpc('tc_status');
+          if (API.room && (st.status==='none' || st.status==='cancelled')) {
+            lost(DEFAULT_LOST,'disconnect');
+          }
+        } catch(_) { }
+      },8000);
+      const poll=async()=>{
+        if (!API.finding) return;
+        try {
+          const st=await rpc('tc_status');
+          if (!API.finding) return;
+          if (st.status==='none' || st.status==='cancelled') return lost('That matchmaking room closed. Try again.','error');
+          if (st.status==='ready' && Array.isArray(st.players) && st.players.length===settings.mode*2) {
+            API.members=st.players;
+            API.finding=false; API.starting=true; API.readyAt=Date.now();
+            clearInterval(API.polling); API.polling=null;
+            clearTimeout(API.searchTimeout); API.searchTimeout=null;
+            if (API.onFound) API.onFound();
+            await connectPeers();
+          }
+        } catch(err) { if(API.finding) lost('Matchmaking failed: '+errorText(err),'error'); }
+      };
+      API.polling=setInterval(poll,1100);
+      API.searchTimeout=setTimeout(()=>{if(API.finding)lost('No other player joined this search. Try again.','error');},120000);
+      await poll();
+    } catch(err) {
+      await cancel();
+      throw err;
+    }
+  }
+  function sendInput(controls) {
+    if (!API.active || API.isHost) return;
+    const host=API.peers.get(0);
+    if (!host) return;
+    if (host.control && host.control.readyState==='open' && host.control.bufferedAmount<65536) {
+      sendControl(host,{type:'input',seat:API.seat,controls});
+    } else if (host.state && host.state.readyState==='open' && host.state.bufferedAmount<65536) {
+      host.state.send(JSON.stringify({type:'input',seat:API.seat,controls}));
+    }
+  }
+  function sendSnapshot(snapshot) {
+    if (!API.active || !API.isHost) return;
+    const message={type:'snapshot',seq:++API.snapshotSeq,data:snapshot};
+    const packet=JSON.stringify(message);
+    for (const peer of API.peers.values()) {
+      if (peer.state && peer.state.readyState==='open' && peer.state.bufferedAmount<200000) {
+        try { peer.state.send(packet); } catch (_) { detectDisconnect(peer); }
+      }
+      if (API.snapshotSeq % 5===0) sendControl(peer,message);
+    }
+  }
+  async function cancel() {
+    API.finding=false; API.starting=false; API.active=false;
+    cleanTimers();
+    for (const peer of API.peers.values()) sendControl(peer,{type:'leaving'});
+    if (API.peers.size) await sleep(100);
+    for (const peer of API.peers.values()) {
+      if (peer.disconnectTimer) clearTimeout(peer.disconnectTimer);
+      try { peer.pc.close(); } catch(_) {}
+    }
+    API.peers.clear(); API.pendingCandidates.clear(); API.names.clear(); API.skins.clear();
+    API.signalBusy=false; API.signalCursor=0;
+    const room=API.room;
+    API.room=null; API.seat=-1; API.members=[]; API.isHost=false;
+    if (room && API.client) await rpc('tc_leave').catch(()=>{});
+  }
+  async function lost(message,reason='error') {
+    if (API.ending || (!API.room && !API.finding && !API.starting && !API.active)) return;
+    API.ending=true;
+    const cb=API.onLost;
+    await cancel();
+    if (cb) cb(message,reason);
+  }
+  API.setUsername=name=>{
+    if (!validUsername(name)) throw new Error('Invalid username');
+    API.username=name;
+  };
+  API.setSkin=id=>{ if (typeof id==='string' && /^[a-z]{2,16}$/.test(id)) API.skin=id; };
+  API.search=search; API.cancel=cancel;
+  API.sendInput=sendInput; API.sendSnapshot=sendSnapshot; API.lost=lost;
+  window.TCMultiplayer=API;
+})();
+
+</script>
 <script>
 (async () => {
   try {
@@ -301,6 +810,56 @@ const DIFF = [
     { throttle: 1.0, est: 56, boostDist: 8, reserve: 0, flip: true, dbl: true, aerial: true, flipChance: 0.9, reach: 18 },
 ];
 const settings = { mode: 1, diff: 1, len: 300 };
+const STORE_KEY = 'turboclash.store.v1';
+const STORE = (() => {
+    let d = null;
+    try { d = JSON.parse(localStorage.getItem(STORE_KEY)); } catch (_) { }
+    if (!d || typeof d.coins !== 'number' || !Array.isArray(d.owned))
+        d = { coins: 1500, owned: ['stock'], equipped: 'stock' };
+    if (!d.owned.includes('stock'))
+        d.owned.push('stock');
+    if (!Array.isArray(d.ownedBalls))
+        d.ownedBalls = ['classic'];
+    if (!d.ownedBalls.includes('classic'))
+        d.ownedBalls.push('classic');
+    if (typeof d.ball !== 'string')
+        d.ball = 'classic';
+    return d;
+})();
+function saveStore() { try { localStorage.setItem(STORE_KEY, JSON.stringify(STORE)); } catch (_) { } }
+const online = window.TCMultiplayer;
+let playType = 'bots';
+const usernamePattern = /^[A-Za-z0-9_]{3,12}$/;
+let playerName = 'You';
+try {
+    const saved = localStorage.getItem('turboclash-display-name');
+    if (usernamePattern.test(saved || '')) playerName = saved;
+} catch (_) { }
+$('usernameInput').value = playerName === 'You' ? '' : playerName;
+function confirmUsername() {
+    const value = $('usernameInput').value.trim();
+    playerName = usernamePattern.test(value) ? value : 'You';
+    try {
+        if (playerName === 'You') localStorage.removeItem('turboclash-display-name');
+        else localStorage.setItem('turboclash-display-name',playerName);
+    } catch (_) {}
+    if (online) online.setUsername(playerName);
+    return true;
+}
+const remoteInputs = new Map();
+let onlineInputTimer = 0, onlineSnapshotTimer = 0;
+const _netPos = new V3(), _netVel = new V3(), _netQ = new Q4();
+function serializeInput(inp) {
+    return [inp.throttle, inp.steer, inp.pitch, inp.roll, +inp.jump, +inp.boost, +inp.slide];
+}
+function useRemoteInput(inp, arr) {
+    if (!Array.isArray(arr) || arr.length !== 7) return;
+    for (const x of arr) if (!Number.isFinite(x) || Math.abs(x) > 1.001) return;
+    [inp.throttle, inp.steer, inp.pitch, inp.roll] = arr.slice(0, 4);
+    inp.jump = !!arr[4]; inp.boost = !!arr[5]; inp.slide = !!arr[6];
+}
+function clearInput(inp) { inp.throttle=inp.steer=inp.pitch=inp.roll=0; inp.jump=inp.boost=inp.slide=false; }
+
 const BX = HW + 9, BZ = HL + GD + 9, RC = 36;
 const LR = 10, D1 = 1.8, R1 = 1.05, H1 = 2.2;
 const O2 = LR * D1 + 6, TOP_L = H1 + (LR - 1) * R1;
@@ -1254,8 +1813,8 @@ function buildCrowdCards() {
 const jumboC = mkCanvas(1024, 430);
 let jumboKey = '', lastGoalTeam = -1;
 function drawJumbo() {
-    const clock = overtime ? '+' + fmt(otTime) : fmt(timeLeft), flash = state === 'goal' || state === 'replay' ? lastGoalTeam : -1, rp = state === 'replay';
-    const key = `${scoreArr[0]}|${scoreArr[1]}|${attract ? 'A' : clock}|${flash}|${rp}`;
+    const clock = overtime ? '+' + fmt(otTime) : fmt(timeLeft), flash = state === 'goal' || state === 'replay' ? lastGoalTeam : -1, rp = state === 'replay', fin = rp && !!(replay && replay.final);
+    const key = `${scoreArr[0]}|${scoreArr[1]}|${attract ? 'A' : clock}|${flash}|${rp}|${fin}|${replayScorer}`;
     if (key === jumboKey)
         return;
     jumboKey = key;
@@ -1271,10 +1830,17 @@ function drawJumbo() {
         g.fillStyle = gr;
         g.fillRect(0, 0, W, H);
         g.fillStyle = '#fff';
-        g.font = `italic 900 ${rp ? 190 : 220}px Segoe UI, Arial`;
-        g.fillText(rp ? 'REPLAY' : 'GOAL!', W / 2, H / 2 - 20);
+        const word = fin ? 'FINAL REPLAY' : rp ? 'REPLAY' : 'GOAL!';
+        let fs = rp ? 190 : 220;
+        g.font = `italic 900 ${fs}px Segoe UI, Arial`;
+        while (fs > 60 && g.measureText(word).width > W - 70) {
+            fs -= 6;
+            g.font = `italic 900 ${fs}px Segoe UI, Arial`;
+        }
+        g.fillText(word, W / 2, H / 2 - 20);
         g.font = '800 46px Segoe UI, Arial';
-        g.fillText(`${TEAM_NAME[flash]} SCORES`, W / 2, H - 55);
+        const goalScorer = replayScorer >= 0 ? cars[replayScorer] : null;
+        g.fillText(`${goalScorer ? goalScorer.name : TEAM_NAME[flash]} SCORED!`, W / 2, H - 55);
     }
     else {
         const bw = 340;
@@ -1302,7 +1868,7 @@ function drawJumbo() {
         drawPlayvora(g, W / 2 + 160, H - 52, 40);
         g.fillStyle = '#9fb3d9';
         g.textAlign = 'center';
-        g.fillText('•', W / 2 + 8, H - 52);
+        g.fillText('â€¢', W / 2 + 8, H - 52);
     }
     g.fillStyle = 'rgba(0,0,0,.22)';
     for (let y = 0; y < H; y += 4)
@@ -1417,9 +1983,179 @@ function extrudeSide(pts, width, bevel) {
     g.translate(width / 2, -CAR_Y, 0);
     return g;
 }
-function buildCarMesh(team, name, human) {
+const SKIN_TIME = { value: 0 };
+const SKIN_GLSL = `
+uniform vec3 uSkA; uniform vec3 uSkB; uniform vec3 uSkC; uniform float uSkTime;
+varying vec3 vSkinP;
+float skH(vec3 p){ p = fract(p * 0.3183099 + .1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+float skN(vec3 x){ vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(mix(skH(i), skH(i + vec3(1,0,0)), f.x), mix(skH(i + vec3(0,1,0)), skH(i + vec3(1,1,0)), f.x), f.y),
+             mix(mix(skH(i + vec3(0,0,1)), skH(i + vec3(1,0,1)), f.x), mix(skH(i + vec3(0,1,1)), skH(i + vec3(1,1,1)), f.x), f.y), f.z); }
+float skF(vec3 p){ float a = 0.0, w = .5; for (int i = 0; i < 4; i++) { a += w * skN(p); p = p * 2.03 + 7.1; w *= .5; } return a; }
+`;
+const SKIN_PAT = {
+    1: `float s = step(.1, abs(p.x)) * step(abs(p.x), .32) + step(abs(abs(p.x) - .42), .03);
+        col = mix(uSkA, uSkB, clamp(s, 0.0, 1.0));`,
+    2: `float c = mod(floor(p.x * 2.6) + floor(p.y * 2.6) + floor(p.z * 2.6), 2.0);
+        col = mix(uSkA, uSkB, c);`,
+    3: `float n = skF(p * 1.4 + 3.0);
+        col = n < .43 ? uSkA : (n < .56 ? uSkB : uSkC);`,
+    4: `float t = (2.55 - p.z) / 3.4;
+        float e = .55 + .16 * sin(p.y * 11.0 + p.x * 4.0) + .22 * (skN(p * 3.2) - .5) + .1 * sin(abs(p.x) * 9.0);
+        float m = 1.0 - smoothstep(e - .02, e + .02, t);
+        vec3 fc = mix(uSkC, uSkB, clamp(t * 1.9, 0.0, 1.0));
+        col = mix(uSkA, fc, m); emi += fc * m * .35;`,
+    5: `float n = skF(p * 1.1);
+        col = mix(uSkA, uSkB, smoothstep(.35, .75, n));
+        float h = skH(floor(p * 38.0)); float st = step(.982, h);
+        float tw = .6 + .4 * sin(uSkTime * 3.0 + h * 60.0);
+        col = mix(col, vec3(1.0), st); emi += uSkB * smoothstep(.55, .8, n) * .25 + uSkC * st * 2.2 * tw; rough = .25;`,
+    6: `vec3 d = abs(fract(p * 2.2) - .5);
+        float g = max(max(smoothstep(.455, .49, d.x), smoothstep(.455, .49, d.z)), smoothstep(.455, .49, d.y) * .6);
+        float pulse = 1.3 + .7 * sin(uSkTime * 3.0 - p.z * 2.5);
+        col = mix(uSkA, uSkB, g); emi += uSkB * g * pulse;`,
+    7: `float n = skF(p * 1.8 + vec3(0.0, -uSkTime * .25, uSkTime * .1));
+        float k = 1.0 - smoothstep(0.0, .07, abs(n - .5));
+        float hot = pow(k, 3.0);
+        col = mix(uSkA, uSkB, k); emi += uSkB * k * 2.0 + uSkC * hot * 2.5; rough = mix(.8, .3, k); metal = 0.05;`,
+    8: `float v = sin(p.z * 7.5 + skN(p * 2.2) * 3.4 + abs(p.x) * 2.3 + p.y * 2.0);
+        col = mix(uSkA, uSkB, smoothstep(.5, .58, v));`,
+    9: `float a = skH(floor(p * 7.0)), b = skH(floor(p * 3.2) + 11.0);
+        float n = mix(a, b, .55);
+        col = n < .4 ? uSkA : (n < .62 ? uSkB : uSkC);`,
+    10: `vec2 uv = vec2(p.z, p.x + p.y) * 15.0;
+        float w = sin(uv.x) * sin(uv.y);
+        float cell = mod(floor(uv.x / 3.14159) + floor(uv.y / 3.14159), 2.0);
+        col = mix(uSkA, uSkB, smoothstep(-.3, .3, cell > .5 ? w : -w));`,
+    11: `float f = dot(normal, normalize(vViewPosition));
+        float hue = fract(f * 1.6 + p.z * .22 + p.y * .6 + uSkTime * .05);
+        vec3 rb = clamp(abs(mod(hue * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
+        col = mix(uSkA, rb, .85); emi += rb * .08;`,
+};
+const RARITY = [
+    { name: 'COMMON', css: '#9fb0d0' }, { name: 'RARE', css: '#4b97ff' },
+    { name: 'EPIC', css: '#c070ff' }, { name: 'LEGENDARY', css: '#ffb22e' },
+];
+const SKINS = [
+    { id: 'stock', name: 'FACTORY STOCK', rarity: 0, price: 0, team: true },
+    { id: 'midnight', name: 'MIDNIGHT MATTE', rarity: 0, price: 500, color: 0x101114, rough: .8, metal: .1, clear: 0, accent: [0xb8c4ff, 0xffffff] },
+    { id: 'arctic', name: 'ARCTIC PEARL', rarity: 0, price: 500, color: 0xeef2f7, rough: .22, metal: .25, clear: 1, accent: [0x8fe3ff, 0xffffff] },
+    { id: 'yellow', name: 'RACING YELLOW', rarity: 0, price: 500, color: 0xffc400, rough: .3, metal: .2, clear: .9, accent: [0xffb000, 0xfff2b0] },
+    { id: 'venom', name: 'LIME VENOM', rarity: 0, price: 500, color: 0x6dff1f, rough: .3, metal: .25, clear: .9, accent: [0x5dff2a, 0xe6ffd0] },
+    { id: 'stripes', name: 'GT STRIPES', rarity: 1, price: 1200, pat: 1, color: 0xc4121c, b: 0xf4f4f4, rough: .3, metal: .2, clear: 1, accent: [0xff3b3b, 0xffffff] },
+    { id: 'checker', name: 'CHECKERED FLAG', rarity: 1, price: 1200, pat: 2, color: 0xf2f2f2, b: 0x111111, rough: .35, metal: .1, clear: .8, accent: [0xffffff, 0xffffff] },
+    { id: 'woodland', name: 'WOODLAND CAMO', rarity: 1, price: 1200, pat: 3, color: 0x3b4a2a, b: 0x6b6a3e, c: 0x1e2416, rough: .75, metal: .05, clear: 0, accent: [0x9adf4a, 0xeaffc8] },
+    { id: 'tiger', name: 'TIGER CLAW', rarity: 1, price: 1200, pat: 8, color: 0xff7a00, b: 0x0d0d0d, rough: .4, metal: .15, clear: .7, accent: [0xff8a00, 0xffe2b0] },
+    { id: 'chrome', name: 'CHROME MIRROR', rarity: 2, price: 2500, color: 0xf2f6ff, rough: .02, metal: 1, clear: 1, env: 2, accent: [0xcfe8ff, 0xffffff] },
+    { id: 'gold', name: 'GOLD RUSH', rarity: 2, price: 2500, color: 0xffd36b, rough: .1, metal: 1, clear: .8, env: 2, accent: [0xffcc33, 0xfff6d0] },
+    { id: 'carbon', name: 'CARBON STEALTH', rarity: 2, price: 2500, pat: 10, color: 0x0c0d10, b: 0x2a2d34, rough: .35, metal: .5, clear: 1, rim: 0x222428, accent: [0xff2a2a, 0xffd0d0] },
+    { id: 'digital', name: 'DIGITAL CAMO', rarity: 2, price: 2500, pat: 9, color: 0x1d2b4a, b: 0x4c6a9e, c: 0xb5c7e6, rough: .55, metal: .1, clear: .3, accent: [0x5fa8ff, 0xd8ecff] },
+    { id: 'neon', name: 'NEON GRID', rarity: 2, price: 3000, pat: 6, color: 0x07070c, b: 0x00f0ff, rough: .3, metal: .4, clear: 1, rim: 0x101018, accent: [0x00f0ff, 0xd8fdff] },
+    { id: 'flames', name: 'INFERNO', rarity: 3, price: 5000, pat: 4, color: 0x0c0c10, b: 0xff2200, c: 0xffd400, rough: .25, metal: .3, clear: 1, accent: [0xff5a00, 0xfff0a0] },
+    { id: 'galaxy', name: 'GALAXY', rarity: 3, price: 5000, pat: 5, color: 0x0a0630, b: 0x8a2be2, c: 0xffffff, rough: .25, metal: .3, clear: 1, accent: [0xb05cff, 0xf0d8ff] },
+    { id: 'lava', name: 'LAVA CORE', rarity: 3, price: 6000, pat: 7, color: 0x140c0a, b: 0xff4a00, c: 0xffd060, rough: .6, metal: .05, clear: .2, rim: 0x1a1210, accent: [0xff3a00, 0xffd27a] },
+    { id: 'holo', name: 'HOLO PRISM', rarity: 3, price: 7500, pat: 11, color: 0xffffff, rough: .12, metal: .85, clear: 1, env: 1.5, accent: [0xff6bf0, 0xc8fbff] },
+];
+const SKIN_BY_ID = Object.fromEntries(SKINS.map(s => [s.id, s]));
+const BALL_PAT = {
+    beach: `float lon = atan(d.z, d.x); float s = floor((lon / 6.2832 + .5) * 6.0);
+        col = s < 1. ? vec3(.85,.05,.04) : s < 2. ? vec3(1.,.75,.02) : s < 3. ? vec3(.95) : s < 4. ? vec3(.02,.25,.9) : s < 5. ? vec3(.1,.7,.15) : vec3(1.,.35,.02);
+        col = mix(col, vec3(.95), step(.9, abs(d.y))); col = mix(col, vec3(.8,.05,.04), step(.985, abs(d.y)));`,
+    basket: `float m = min(min(abs(d.y), abs(d.x)), abs(abs(d.z) - .72 + .5 * d.y * d.y));
+        col = uSkA * (.85 + .2 * skN(p * 40.0)); col = mix(col, uSkB, 1.0 - smoothstep(.012, .022, m)); rough = .8;`,
+    melon: `float v = sin(atan(d.z, d.x) * 9.0 + skN(p * 3.0) * 4.0 + d.y * 2.0);
+        col = mix(uSkA, uSkB, smoothstep(-.25, .25, v) * (.8 + .2 * skN(p * 9.0)));`,
+    eye: `float t = d.z;
+        float vein = (1.0 - smoothstep(0.0, .035, abs(skN(p * 4.5) - .5))) * smoothstep(.75, -.4, t);
+        col = mix(vec3(.95,.93,.9), vec3(.75,.05,.05), vein * .8);
+        float a = atan(d.y, d.x), streak = .7 + .3 * sin(a * 40.0 + skN(p * 8.0) * 6.0);
+        col = mix(col, mix(uSkA, uSkB, smoothstep(.86, .95, t)) * streak, step(.86, t));
+        col = mix(col, vec3(.01), step(.95, t)); col = mix(col, vec3(.02,.05,.06), smoothstep(.858, .862, t) - smoothstep(.87, .875, t)); rough = .1;`,
+    earth: `float n = skF(p * 1.5 + 2.0);
+        float land = smoothstep(.5, .53, n);
+        vec3 sea = mix(vec3(.01,.05,.25), vec3(.03,.2,.5), smoothstep(.3, .5, n));
+        vec3 grd = mix(vec3(.08,.35,.06), vec3(.45,.35,.15), smoothstep(.45, .65, skF(p * 4.0)));
+        col = mix(sea, grd, land); col = mix(col, vec3(.95), smoothstep(.82, .88, abs(d.y)));
+        float cl = smoothstep(.55, .72, skF(p * 2.4 + vec3(uSkTime * .03, 0.0, 0.0)));
+        col = mix(col, vec3(1.0), cl * .75); rough = mix(.25, .85, max(land, cl)); emi += vec3(.02,.05,.12) * (1.0 - land);`,
+    disco: `float lat = asin(clamp(d.y, -1.0, 1.0)), lon = atan(d.z, d.x);
+        vec2 g = vec2((lon / 6.2832 + .5) * 40.0, (lat / 3.1416 + .5) * 20.0); vec2 f = fract(g);
+        float e = step(.07, f.x) * step(.07, f.y) * step(f.x, .93) * step(f.y, .93);
+        float h = skH(vec3(floor(g), 3.0));
+        col = mix(vec3(.05), uSkA * (.8 + .4 * h), e); metal = e; rough = mix(.9, .04, e);
+        emi += vec3(1.0) * step(.965, fract(h * 13.0 + uSkTime * .6)) * e * 2.0;`,
+    sun: `float n = skF(p * 2.2 + vec3(0.0, uSkTime * .35, uSkTime * .1));
+        col = mix(uSkA, uSkB, n * n); emi += mix(uSkA * .55, uSkC, pow(n, 3.0)) * 1.15; rough = .9; metal = 0.0;`,
+};
+const BALLS = [
+    { id: 'classic', name: 'CLASSIC', rarity: 0, price: 0, classic: true },
+    { id: 'beach', name: 'BEACH BALL', rarity: 0, price: 400, bpat: 'beach', rough: .35, metal: 0, clear: .8, accent: [0xffc400] },
+    { id: 'hoops', name: 'HOOPS', rarity: 0, price: 400, bpat: 'basket', color: 0xd9581a, b: 0x161210, rough: .8, metal: 0, clear: 0, accent: [0xff7a1a] },
+    { id: 'melon', name: 'WATERMELON', rarity: 1, price: 1000, bpat: 'melon', color: 0x1d4d16, b: 0x76b83f, rough: .45, metal: 0, clear: .6, accent: [0x6dff1f] },
+    { id: 'eyeball', name: 'EYEBALL', rarity: 1, price: 1000, bpat: 'eye', color: 0x1b7a6e, b: 0x0d3550, rough: .1, metal: 0, clear: 1, accent: [0xff3b3b] },
+    { id: 'checkmate', name: 'CHECKMATE', rarity: 1, price: 1000, pat: 2, color: 0xf2f2f2, b: 0x111111, rough: .3, metal: .1, clear: .8, accent: [0xffffff] },
+    { id: 'earth', name: 'PLANET EARTH', rarity: 2, price: 2000, bpat: 'earth', rough: .5, metal: 0, clear: .3, accent: [0x3c8cff] },
+    { id: 'disco', name: 'DISCO BALL', rarity: 2, price: 2500, bpat: 'disco', color: 0xeef2ff, rough: .05, metal: 1, clear: .4, env: 2, accent: [0xff6bf0] },
+    { id: 'neonball', name: 'NEON CORE', rarity: 2, price: 2500, pat: 6, color: 0x07070c, b: 0xff2bd6, rough: .3, metal: .4, clear: 1, accent: [0xff2bd6] },
+    { id: 'nebula', name: 'NEBULA', rarity: 3, price: 4000, pat: 5, color: 0x0a0630, b: 0x8a2be2, c: 0xffffff, rough: .25, metal: .3, clear: 1, accent: [0xb05cff] },
+    { id: 'magma', name: 'MAGMA', rarity: 3, price: 4500, pat: 7, color: 0x140c0a, b: 0xff4a00, c: 0xffd060, rough: .6, metal: .05, clear: .2, accent: [0xff3a00] },
+    { id: 'solar', name: 'SOLAR FLARE', rarity: 3, price: 5000, bpat: 'sun', color: 0xd83a00, b: 0xffa000, c: 0xffe27a, accent: [0xffb000] },
+];
+const BALL_BY_ID = Object.fromEntries(BALLS.map(b => [b.id, b]));
+function ballMaterial(b) {
+    if (!b || b.classic)
+        return new THREE.MeshPhysicalMaterial({ map: ballMap, bumpMap: ballBump, bumpScale: 2.5, roughness: .42, metalness: 0, clearcoat: .35, clearcoatRoughness: .3 });
+    const m = new THREE.MeshPhysicalMaterial({ color: 0xffffff, metalness: b.metal ?? 0, roughness: b.rough ?? .4, clearcoat: b.clear ?? .4, clearcoatRoughness: .1, envMapIntensity: b.env ?? 1 });
+    const code = b.pat ? SKIN_PAT[b.pat] : BALL_PAT[b.bpat], key = 'ball' + (b.pat || b.bpat);
+    const u = {
+        uSkA: { value: new THREE.Color(b.color ?? 0xffffff) }, uSkB: { value: new THREE.Color(b.b ?? 0xffffff) },
+        uSkC: { value: new THREE.Color(b.c ?? 0xffffff) }, uSkTime: SKIN_TIME,
+    };
+    m.onBeforeCompile = sh => {
+        Object.assign(sh.uniforms, u);
+        sh.vertexShader = 'varying vec3 vSkinP;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvSkinP = normalize(position) * 1.8;');
+        sh.fragmentShader = SKIN_GLSL + sh.fragmentShader.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+            { vec3 p = vSkinP; vec3 d = normalize(p); vec3 col = diffuseColor.rgb; vec3 emi = vec3(0.0); float rough = roughnessFactor, metal = metalnessFactor;
+              { ${code} }
+              diffuseColor.rgb = col; totalEmissiveRadiance += emi; roughnessFactor = rough; metalnessFactor = metal; }`);
+    };
+    m.customProgramCacheKey = () => key;
+    return m;
+}
+function skinPaint(skin, team) {
+    if (!skin || skin.team)
+        return new THREE.MeshPhysicalMaterial({ color: team ? 0xb00812 : 0x0b3fcf, metalness: .2, roughness: .36, clearcoat: .7, clearcoatRoughness: .05, envMapIntensity: .6 });
+    const m = new THREE.MeshPhysicalMaterial({
+        color: skin.pat ? 0xffffff : skin.color, metalness: skin.metal ?? .2, roughness: skin.rough ?? .36,
+        clearcoat: skin.clear ?? .7, clearcoatRoughness: .05, envMapIntensity: skin.env ?? (skin.metal > .8 ? 1 : .6),
+    });
+    if (skin.irid) {
+        m.iridescence = 1;
+        m.iridescenceIOR = 1.8;
+        m.iridescenceThicknessRange = [150, 900];
+    }
+    if (skin.pat) {
+        const pat = skin.pat;
+        const u = {
+            uSkA: { value: new THREE.Color(skin.color) }, uSkB: { value: new THREE.Color(skin.b ?? 0xffffff) },
+            uSkC: { value: new THREE.Color(skin.c ?? 0xffffff) }, uSkTime: SKIN_TIME,
+        };
+        m.onBeforeCompile = sh => {
+            Object.assign(sh.uniforms, u);
+            sh.vertexShader = 'varying vec3 vSkinP;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvSkinP = position;');
+            sh.fragmentShader = SKIN_GLSL + sh.fragmentShader.replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+            { vec3 p = vSkinP; vec3 col = diffuseColor.rgb; vec3 emi = vec3(0.0); float rough = roughnessFactor, metal = metalnessFactor;
+              ${SKIN_PAT[pat]}
+              diffuseColor.rgb = col; totalEmissiveRadiance += emi; roughnessFactor = rough; metalnessFactor = metal; }`);
+        };
+        m.customProgramCacheKey = () => 'skin' + pat;
+    }
+    return m;
+}
+function buildCarMesh(team, name, human, skin = null, parent = scene) {
     const g = new THREE.Group(), col = TEAM_COL[team], yb = -CAR_Y;
-    const paint = new THREE.MeshPhysicalMaterial({ color: team ? 0xb00812 : 0x0b3fcf, metalness: .2, roughness: .36, clearcoat: .7, clearcoatRoughness: .05, envMapIntensity: .6 });
+    const paint = skinPaint(skin, team);
+    const rimMat = skin && skin.rim != null ? new THREE.MeshStandardMaterial({ color: skin.rim, metalness: .9, roughness: .3 }) : rimM;
     const carbon = new THREE.MeshStandardMaterial({ color: 0x16181d, metalness: .4, roughness: .45 });
     const glassM = new THREE.MeshPhysicalMaterial({ color: 0x0a1120, metalness: .2, roughness: .04, clearcoat: 1, envMapIntensity: 1.6 });
     const mk = (geo, mat, x = 0, y = 0, z = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; g.add(m); return m; };
@@ -1438,7 +2174,26 @@ function buildCarMesh(team, name, human) {
         mk(new THREE.BoxGeometry(.55, .1, .06), hl, sx * .8, yb + .6, 2.36).rotation.x = .3;
         mk(new THREE.BoxGeometry(.7, .09, .05), tl, sx * .76, yb + .7, -2.44);
     }
-    mk(new THREE.CylinderGeometry(.24, .28, .3, 14), carbon, 0, yb + .45, -2.5).rotation.x = Math.PI / 2;
+    {
+        const ny = yb + .45, steel = new THREE.MeshStandardMaterial({ color: 0x3a3f48, metalness: .85, roughness: .32 });
+        const chrome = new THREE.MeshStandardMaterial({ color: 0xdfe5ee, metalness: 1, roughness: .12 });
+        mk(new THREE.CylinderGeometry(.31, .35, .36, 24), steel, 0, ny, -2.47).rotation.x = Math.PI / 2;
+        for (let k = 0; k < 8; k++) {
+            const a = k / 8 * Math.PI * 2, fin = mk(new THREE.BoxGeometry(.035, .1, .3), carbon, Math.cos(a) * .37, ny + Math.sin(a) * .37, -2.45);
+            fin.rotation.z = a - Math.PI / 2;
+        }
+        mk(new THREE.TorusGeometry(.33, .025, 8, 28), chrome, 0, ny, -2.31);
+        mk(new THREE.TorusGeometry(.26, .05, 12, 32), chrome, 0, ny, -2.66);
+        const throat = mk(new THREE.CylinderGeometry(.24, .15, .24, 24, 1, true), new THREE.MeshStandardMaterial({ color: 0x0b0c0f, metalness: .6, roughness: .5, side: THREE.DoubleSide }), 0, ny, -2.6);
+        throat.rotation.x = -Math.PI / 2;
+        const core = mk(new THREE.CircleGeometry(.16, 24), new THREE.MeshBasicMaterial({ color: new THREE.Color(col).multiplyScalar(.7), toneMapped: false }), 0, ny, -2.665);
+        core.rotation.y = Math.PI;
+        core.castShadow = false;
+        const ringG = mk(new THREE.RingGeometry(.07, .1, 24), new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false, transparent: true, opacity: .55 }), 0, ny, -2.67);
+        ringG.rotation.y = Math.PI;
+        ringG.castShadow = false;
+        mk(new THREE.BoxGeometry(.14, .2, .26), steel, 0, ny + .3, -2.4);
+    }
     const flameO = new THREE.Mesh(new THREE.ConeGeometry(.42, 2.6, 16, 1, true), new THREE.MeshBasicMaterial({ color: team ? 0xff2d3d : 0x2f8bff, transparent: true, opacity: .75, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
     const flameI = new THREE.Mesh(new THREE.ConeGeometry(.22, 1.5, 12, 1, true), new THREE.MeshBasicMaterial({ color: team ? 0xffd2d8 : 0xd2efff, transparent: true, opacity: .95, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
     for (const [f, z] of [[flameO, -3.85], [flameI, -3.25]]) {
@@ -1458,10 +2213,10 @@ function buildCarMesh(team, name, human) {
         const t = new THREE.Mesh(tireGeo, tireM);
         t.castShadow = true;
         w.add(t);
-        w.add(new THREE.Mesh(rimGeo, rimM));
+        w.add(new THREE.Mesh(rimGeo, rimMat));
         const s = Math.sign(x);
         for (let k = 0; k < 5; k++) {
-            const sp = new THREE.Mesh(spokeGeo, rimM);
+            const sp = new THREE.Mesh(spokeGeo, rimMat);
             sp.position.x = s * .2;
             sp.rotation.x = k * Math.PI * 2 / 5;
             w.add(sp);
@@ -1471,14 +2226,20 @@ function buildCarMesh(team, name, human) {
         w.add(cap);
         wheels.push({ pivot, w, front: z > 0 });
     }
-    g.add(makeNameTag(name, TEAM_CSS[team]));
-    scene.add(g);
+    g.traverse(o => { if (o.isMesh) { if (o.material === paint) o.userData.paint = true; else if (o.material === rimMat) o.userData.rim = true; } });
+    if (name) {
+        g.userData.nameTag = makeNameTag(name, TEAM_CSS[team]);
+        g.add(g.userData.nameTag);
+    }
+    parent.add(g);
     return { g, wheels, flames: [flameO, flameI] };
 }
 let cars = [];
-function createCar(team, name, human) {
-    const m = buildCarMesh(team, name, human);
+function createCar(team, name, human, skinOverride) {
+    const skin = skinOverride !== undefined ? skinOverride : (human ? SKIN_BY_ID[STORE.equipped] || null : null);
+    const m = buildCarMesh(team, name, human, skin);
     return {
+        skinId: skin ? skin.id : 'stock',
         team, name, human, mesh: m.g, wheels: m.wheels, flames: m.flames,
         pos: new V3(), vel: new V3(), q: new Q4(), yaw: 0, onGround: true, boost: 100, boostIdle: 0,
         n: new V3(0, 1, 0), fwd: new V3(0, 0, 1), jumpN: new V3(0, 1, 0),
@@ -1487,6 +2248,25 @@ function createCar(team, name, human) {
         airTime: 0, holdJump: false, stun: 0, slideT: 0, lastBumped: -9, supersonic: false, boosting: false,
         lastHit: -9, stats: { goals: 0, shots: 0, saves: 0, touches: 0 }, ai: { stage: null, t: 0, hold: 0, opts: {}, stuck: 0, rev: 0 }, role: 'attack', wheelRot: 0,
     };
+}
+function repaintCar(c, id) {
+    const skin = SKIN_BY_ID[id];
+    if (!skin || c.skinId === id)
+        return;
+    c.skinId = id;
+    const paint = skinPaint(skin.team ? null : skin, c.team);
+    const rim = skin.rim != null ? new THREE.MeshStandardMaterial({ color: skin.rim, metalness: .9, roughness: .3 }) : rimM;
+    const old = new Set();
+    c.mesh.traverse(o => {
+        if (o.userData.paint) { old.add(o.material); o.material = paint; }
+        else if (o.userData.rim) { if (o.material !== rimM) old.add(o.material); o.material = rim; }
+    });
+    for (const m of old) m.dispose();
+}
+function applyBallSkin() {
+    const old = ball.mesh.material;
+    ball.mesh.material = ballMaterial(BALL_BY_ID[STORE.ball]);
+    old.dispose();
 }
 function clearCars() { for (const c of cars)
     scene.remove(c.mesh); cars = []; }
@@ -2306,11 +3086,16 @@ function botThink(c, dt) {
 const keys = {};
 let mouseJump = false, padPrev = {};
 addEventListener('keydown', e => {
+    if (e.target && ['INPUT','TEXTAREA'].includes(e.target.tagName)) return;
     if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.code))
         e.preventDefault();
     keys[e.code] = true;
     if (e.repeat)
         return;
+    if (e.code === 'Escape' && storeUI.open) {
+        storeUI.hide();
+        return;
+    }
     if (e.code === 'Escape' || e.code === 'KeyP')
         togglePause();
 });
@@ -2367,6 +3152,7 @@ let lastTouch = [null, null], lastToucher = null, ignoredOwnGoal = false, shake 
 const goalLog = [];
 function setupMatch(isAttract) {
     attract = isAttract;
+    applyBallSkin();
     clearCars();
     const n = isAttract ? 2 : settings.mode;
     const names = [...BOT_NAMES].sort(() => Math.random() - .5);
@@ -2374,7 +3160,7 @@ function setupMatch(isAttract) {
     for (const team of [0, 1])
         for (let i = 0; i < n; i++) {
             const human = !isAttract && team === 0 && i === 0;
-            cars.push(createCar(team, human ? 'YOU' : names[ni++], human));
+            cars.push(createCar(team, human ? playerName : names[ni++], human));
         }
     player = cars.find(c => c.human) || null;
     recInit();
@@ -2387,6 +3173,124 @@ function setupMatch(isAttract) {
     updateScoreHud();
     resetKickoff();
 }
+function setupOnlineMatch() {
+    attract = false;
+    applyBallSkin();
+    clearCars();
+    remoteInputs.clear();
+    for (const team of [0, 1]) {
+        for (let i = 0; i < settings.mode; i++) {
+            const seat = 2 * i + team;
+            const human = online.seat === seat;
+            const c = createCar(team, online.names.get(seat) || (human ? playerName : `PLAYER ${seat + 1}`), human, human ? undefined : (SKIN_BY_ID[online.skins.get(seat)] || null));
+            c.netSeat = seat;
+            cars.push(c);
+        }
+    }
+    player = cars.find(c => c.human) || null;
+    recInit(); lastGoalReplay = null;
+    scoreArr = [0, 0]; timeLeft = settings.len;
+    overtime = false; otTime = 0;
+    $('clock').classList.remove('ot', 'last-minute');
+    updateScoreHud(); resetKickoff();
+}
+function onlineSnapshot() {
+    return {
+        state, timeLeft, overtime, otTime, scores: [...scoreArr], countT, goalT,
+        playerNames: cars.map(c=>({seat:c.netSeat,name:c.name,skin:c.skinId})),
+        scorerSeat: replayScorer >= 0 ? cars[replayScorer]?.netSeat ?? null : null, goalTeam: lastGoalTeam,
+        ball: { pos: ball.pos.toArray(), vel: ball.vel.toArray(), spin: ball.spin.toArray(), active: ball.active },
+        cars: cars.map(c => ({ seat: c.netSeat, pos: c.pos.toArray(), vel: c.vel.toArray(),
+            q: c.q.toArray(), n: c.n.toArray(), fwd: c.fwd.toArray(),
+            jumpN: c.jumpN.toArray(), canFlip: c.canFlip,
+            boost: c.boost, boostIdle: c.boostIdle,
+            boosting: c.boosting, onGround: c.onGround, supersonic: c.supersonic,
+            steer: c.input.steer, stats: c.stats })),
+    };
+}
+function onlineApplySnapshot(snap) {
+    if (!online.active || online.isHost || !Array.isArray(snap.cars) || snap.cars.length !== settings.mode * 2) return;
+    const previous = state;
+    if (Array.isArray(snap.playerNames)) {
+        for (const p of snap.playerNames) {
+            if (!p || !Number.isInteger(p.seat) || !usernamePattern.test(p.name || '')) continue;
+            if (p.seat === online.seat) continue;
+            const c = cars.find(c => c.netSeat === p.seat);
+            if (c && typeof p.skin === 'string') repaintCar(c, p.skin);
+            if (!c || c.name === p.name) continue;
+            const oldTag = c.mesh.userData.nameTag;
+            if (oldTag) {
+                c.mesh.remove(oldTag);
+                oldTag.material.map.dispose();
+                oldTag.material.dispose();
+            }
+            c.name = p.name;
+            c.mesh.userData.nameTag = makeNameTag(p.name,TEAM_CSS[c.team]);
+            c.mesh.add(c.mesh.userData.nameTag);
+        }
+    }
+    timeLeft = snap.timeLeft; overtime = !!snap.overtime; otTime = snap.otTime;
+    scoreArr = snap.scores;
+    updateScoreHud();
+    $('clock').classList.toggle('ot', overtime);
+    if (snap.ball && Array.isArray(snap.ball.pos)) {
+        ball.pos.fromArray(snap.ball.pos);
+        ball.vel.fromArray(snap.ball.vel);
+        ball.spin.fromArray(snap.ball.spin);
+        ball.active = !!snap.ball.active;
+        ball.mesh.visible = ball.active;
+    }
+    for (const data of snap.cars) {
+        const c = cars.find(x => x.netSeat === data.seat);
+        if (!c || !Array.isArray(data.pos) || !Array.isArray(data.vel) || !Array.isArray(data.q)) continue;
+        _netPos.fromArray(data.pos); _netVel.fromArray(data.vel); _netQ.fromArray(data.q);
+        const predicted = data.seat === online.seat && state === 'play' && snap.state === 'play';
+        if (predicted) {
+            if (c.pos.distanceToSquared(_netPos) > 225) {
+                c.pos.copy(_netPos); c.vel.copy(_netVel); c.q.copy(_netQ);
+            } else {
+                c.pos.lerp(_netPos, .22);
+                c.vel.lerp(_netVel, .3);
+                c.q.slerp(_netQ, .28);
+            }
+        } else {
+            c.pos.copy(_netPos); c.vel.copy(_netVel); c.q.copy(_netQ);
+        }
+        if (Array.isArray(data.n)) {
+            if (predicted) c.n.lerp(_netPos.fromArray(data.n), .35).normalize();
+            else c.n.fromArray(data.n);
+        }
+        if (Array.isArray(data.fwd)) {
+            if (predicted) c.fwd.lerp(_netPos.fromArray(data.fwd), .35).normalize();
+            else c.fwd.fromArray(data.fwd);
+            c.yaw = Math.atan2(c.fwd.x, c.fwd.z);
+        }
+        if (Array.isArray(data.jumpN)) c.jumpN.fromArray(data.jumpN);
+        if (!predicted) c.canFlip = !!data.canFlip;
+        c.boost = data.boost; c.boostIdle = data.boostIdle;
+        c.boosting = !!data.boosting; c.onGround = !!data.onGround;
+        c.supersonic = !!data.supersonic;
+        if (!predicted) c.input.steer = data.steer;
+        c.stats = data.stats;
+    }
+    state = snap.state === 'replay' ? 'goal' : snap.state;
+    if (previous !== state) {
+        if (state === 'goal') {
+            showCenter('GOAL!', 1.5, '#fff');
+            const scorer = cars.find(c => c.netSeat === snap.scorerSeat);
+            const scorerName = scorer ? scorer.name : TEAM_NAME[snap.goalTeam] || 'TEAM';
+            showSub(`${scorerName} SCORED!`, 1.5);
+        }
+        if (state === 'countdown') {
+            $('center').classList.remove('show');
+            $('sub').classList.remove('show');
+            centerTimer = subTimer = 0;
+            camSnap = true;
+        }
+        if (state === 'play' && previous === 'countdown') showCenter('GO!', .7, '#7dff9a');
+        if (state === 'ended') endMatch();
+    }
+}
 const SPOTS = [[-64, -82], [64, -82], [-8, -124], [8, -124], [0, -148]];
 function resetKickoff() {
     ball.pos.set(0, BR, 0);
@@ -2397,9 +3301,9 @@ function resetKickoff() {
     ball.mesh.visible = true;
     const spots = [...SPOTS].sort(() => Math.random() - .5);
     const blue = cars.filter(c => c.team === 0), red = cars.filter(c => c.team === 1);
-    if (player) {
-        blue.splice(blue.indexOf(player), 1);
-        blue.unshift(player);
+    if (player && (!online.active || online.isHost)) {
+        const idx = blue.indexOf(player);
+        if (idx >= 0) { blue.splice(idx, 1); blue.unshift(player); }
     }
     for (let i = 0; i < blue.length; i++) {
         const [x, z] = spots[i];
@@ -2417,6 +3321,9 @@ function resetKickoff() {
     replay = null;
     $('hud').classList.remove('replaying');
     state = 'countdown';
+    $('center').classList.remove('show');
+    $('sub').classList.remove('show');
+    centerTimer = subTimer = 0;
     countT = attract ? 1 : 3;
     lastCount = 0;
     kickoffT = 0;
@@ -2485,24 +3392,33 @@ function onGoal(team) {
         sfx.goal(!player || team === player.team);
         const own = !scorer && lastToucher;
         showCenter('GOAL!', 2.4, TEAM_CSS[team]);
-        showSub(scorer ? `${scorer.name} SCORED${scorer.human ? '!' : ''}` : own ? `OWN GOAL BY ${lastToucher.name}` : `${TEAM_NAME[team]} SCORES`, 2.4);
+        showSub(scorer ? `${scorer.name} SCORED${scorer.human ? '!' : ''}` : own ? `OWN GOAL BY ${lastToucher.name}` : `${TEAM_NAME[team]} SCORED!`, 2.4);
         feed(`<span style="color:${TEAM_CSS[team]}">${scorer ? scorer.name : TEAM_NAME[team]}</span> scored`);
     }
 }
 function endMatch() {
     state = 'ended';
     const win = scoreArr[0] > scoreArr[1] ? 0 : 1, r = $('result');
-    r.textContent = win === 0 ? 'VICTORY' : 'DEFEAT';
+    r.textContent = win === (player ? player.team : 0) ? 'VICTORY' : 'DEFEAT';
     r.style.color = win === 0 ? TEAM_CSS[0] : TEAM_CSS[1];
-    $('finalScore').innerHTML = `<span style="color:${TEAM_CSS[0]}">${scoreArr[0]}</span> &nbsp;—&nbsp; <span style="color:${TEAM_CSS[1]}">${scoreArr[1]}</span>`;
+    $('finalScore').innerHTML = `<span style="color:${TEAM_CSS[0]}">${scoreArr[0]}</span> &nbsp;â€”&nbsp; <span style="color:${TEAM_CSS[1]}">${scoreArr[1]}</span>`;
     let h = '<tr><th>PLAYER</th><th>GOALS</th><th>SHOTS</th><th>SAVES</th><th>TOUCHES</th></tr>';
     for (const c of [...cars].sort((a, b) => a.team - b.team || b.stats.goals - a.stats.goals))
         h += `<tr class="${c.team ? 'to' : 'tb'} ${c.human ? 'me' : ''}"><td>${c.name}</td><td>${c.stats.goals}</td><td>${c.stats.shots}</td><td>${c.stats.saves}</td><td>${c.stats.touches}</td></tr>`;
     $('stats').innerHTML = h;
+    $('coinGain').innerHTML = '';
+    if (player && !attract) {
+        const won = win === player.team;
+        const earn = won ? (online.active ? 200 : [100, 200, 300][settings.diff] || 100) : 0;
+        STORE.coins += earn;
+        saveStore();
+        updateCoinUI();
+        $('coinGain').innerHTML = `<span class="coinIco"></span>+${earn} COINS`;
+    }
     $('end').classList.remove('hidden');
     $('hud').classList.add('hidden');
     sfx.engine(0, false, false);
-    sfx.playResult(win === 0);
+    sfx.playResult(win === (player ? player.team : 0));
 }
 function updateScoreHud() { $('sB').textContent = scoreArr[0]; $('sO').textContent = scoreArr[1]; }
 let centerTimer = 0, subTimer = 0;
@@ -2513,10 +3429,12 @@ function feed(html) { if (attract)
     $('feed').lastChild.remove(); }
 function fmt(t) { t = Math.max(0, Math.ceil(t)); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; }
 function togglePause() {
-    if (attract || state === 'ended')
+    if (attract || state === 'ended' || online.active)
         return;
     paused = !paused;
     $('pause').classList.toggle('hidden', !paused);
+    $('pauseTitle').textContent = 'PAUSED';
+    $('restartBtn').classList.toggle('hidden', online.active);
     sfx.pause(paused);
 }
 document.querySelectorAll('.seg').forEach(seg => seg.addEventListener('click', e => {
@@ -2528,6 +3446,7 @@ document.querySelectorAll('.seg').forEach(seg => seg.addEventListener('click', e
     settings[seg.dataset.key] = +b.dataset.v;
 }));
 function startGame() {
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
     sfx.init();
     sfx.stopGoal();
     sfx.stopResult();
@@ -2540,14 +3459,79 @@ function startGame() {
     paused = false;
     setupMatch(false);
 }
-function toMenu() {
+function showChoices() {
+    $('choosePlay').classList.remove('hidden');
+    $('menu').classList.add('hidden');
+    $('matchSearch').classList.add('hidden');
+}
+function showMatchOptions(which) {
+    playType = which;
+    $('difficultyLabel').textContent = which === 'online' ? 'SKILL LEVEL' : 'BOTS';
+    $('choosePlay').classList.add('hidden');
+    $('menu').classList.remove('hidden');
+}
+const ONLINE_ERROR_HTML = 'Sorry, something went wrong. Please try again later. If this problem persists, please contact <span class="pvName">Play<span class="vora">vora</span></span> support.';
+const ONLINE_OK_MESSAGES = ['No other player joined this search. Try again.', 'That matchmaking room closed. Try again.'];
+function setSearchError(heading) {
+    setSearch(heading, ' ', false);
+    $('searchDetail').innerHTML = ONLINE_ERROR_HTML;
+}
+function setSearch(heading, detail, showSpinner = true) {
+    $('menu').classList.add('hidden');
+    $('matchSearch').classList.remove('hidden');
+    $('searchHeading').textContent = heading;
+    $('searchDetail').textContent = showSpinner ? '' : detail;
+    $('searchDetail').classList.toggle('hidden', showSpinner || !detail);
+    document.querySelector('.search-spinner').classList.toggle('hidden', !showSpinner);
+    $('cancelSearch').textContent = showSpinner ? 'CANCEL SEARCH' : 'BACK TO MENU';
+}
+async function searchRealPlayer() {
+    setSearch('SEARCHING FOR A MATCH', '');
+    online.onFound = () => setSearch('JOINING MATCH', '');
+    online.onStart = () => {
+        if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+        sfx.init(); sfx.stopGoal(); sfx.stopResult();
+        perfHold(3000);
+        $('matchSearch').classList.add('hidden');
+        $('end').classList.add('hidden');
+        $('pause').classList.add('hidden');
+        $('hud').classList.remove('hidden');
+        $('feed').innerHTML = '';
+        paused = false;
+        onlineInputTimer = onlineSnapshotTimer = 0;
+        setupOnlineMatch();
+    };
+    online.onInput = p => {
+        if (online.isHost && Number.isInteger(p.seat) && p.seat >= 0 && p.seat < settings.mode * 2 && p.seat !== online.seat) {
+            remoteInputs.set(p.seat, { controls: p.controls, at: Date.now() });
+        }
+    };
+    online.onSnapshot = onlineApplySnapshot;
+    online.onSkin = (seat, id) => { const c = cars.find(c => c.netSeat === seat); if (c) repaintCar(c, id); };
+    online.onLost = (message, reason) => {
+        toMenu(true);
+        $('choosePlay').classList.add('hidden');
+        if (reason === 'disconnect') setSearch('PLAYER DISCONNECTED', 'MATCH ENDED', false);
+        else if (ONLINE_OK_MESSAGES.includes(message)) setSearch('ONLINE MATCH ENDED', message, false);
+        else setSearchError('ONLINE MATCH ENDED');
+    };
+    try { await online.search(settings); }
+    catch (err) {
+        console.warn('Online search failed:', err);
+        setSearchError('ONLINE UNAVAILABLE');
+    }
+}
+function toMenu(backToChoice = true) {
+    if (online.active || online.finding || online.room) online.cancel();
+    $('matchSearch').classList.add('hidden');
     paused = false;
     sfx.pause(false);
     sfx.stopGoal();
     sfx.stopResult();
     sfx.engine(0, false, false);
     ['pause', 'end', 'hud'].forEach(id => $(id).classList.add('hidden'));
-    $('menu').classList.remove('hidden');
+    $('menu').classList.toggle('hidden', backToChoice);
+    $('choosePlay').classList.toggle('hidden', !backToChoice);
     $('center').classList.remove('show');
     $('sub').classList.remove('show');
     setupMatch(true);
@@ -2630,7 +3614,7 @@ function startReplay(final = false) {
     const sc = replayScorer >= 0 ? cars[replayScorer] : null;
     $('replayBadge').style.background = lastGoalTeam ? 'linear-gradient(180deg,#ff5050,#c4161c)' : 'linear-gradient(180deg,#4b97ff,#1c5fd6)';
     $('replayBadge').innerHTML = '<i></i>' + (final ? 'FINAL REPLAY' : 'REPLAY');
-    $('replayWho').textContent = sc ? `${sc.name} SCORES` : `${TEAM_NAME[lastGoalTeam]} SCORES`;
+    $('replayWho').textContent = `${sc ? sc.name : TEAM_NAME[lastGoalTeam]} SCORED!`;
     $('hud').classList.add('replaying');
     $('center').classList.remove('show');
     $('sub').classList.remove('show');
@@ -2764,18 +3748,410 @@ function replayCam(dt) {
     camera.fov = 68;
     updateShadow(camLook.x, camLook.z, 110);
 }
-$('playBtn').onclick = startGame;
-$('againBtn').onclick = startGame;
+$('botsChoice').onclick = () => { if (confirmUsername()) showMatchOptions('bots'); };
+$('onlineChoice').onclick = () => { if (confirmUsername()) showMatchOptions('online'); };
+$('backToChoice').onclick = showChoices;
+$('playBtn').onclick = () => playType === 'online' ? searchRealPlayer() : startGame();
+$('againBtn').onclick = () => playType === 'online' ? searchRealPlayer() : startGame();
 $('restartBtn').onclick = startGame;
-$('menuBtn').onclick = toMenu;
-$('quitBtn').onclick = toMenu;
+$('menuBtn').onclick = () => toMenu(true);
+$('quitBtn').onclick = () => toMenu(true);
 $('resumeBtn').onclick = togglePause;
+function updateCoinUI() {
+    document.querySelectorAll('.coinVal').forEach(e => e.textContent = STORE.coins.toLocaleString());
+    const eq = SKIN_BY_ID[STORE.equipped];
+}
+const storeUI = (() => {
+    const cv = $('storeView');
+    let r2 = null, pscene, pcam, turntable, ring, viewCar = null, open = false, raf = 0, showTok = 0, thumbJob = null;
+    let sel = STORE.equipped, filter = 'all', from = 'choosePlay', kind = 'car';
+    const thumbs = {}, thumbQ = [];
+    const KIND = {
+        car: { list: SKINS, by: SKIN_BY_ID, owned: () => STORE.owned, get eq() { return STORE.equipped; }, set eq(v) { STORE.equipped = v; online.setSkin && online.setSkin(v); }, target: .7 },
+        ball: { list: BALLS, by: BALL_BY_ID, owned: () => STORE.ownedBalls, get eq() { return STORE.ball; }, set eq(v) { STORE.ball = v; }, target: 1.62 },
+    };
+    let yaw = .7, pitch = .32, dist = 10.5, vy = 0, vp = 0, drag = null, idleT = 0, lastT = 0, autoSpin = true, curKey = '';
+    const stopped = new Map();
+    const TARGET = new V3(0, .7, 0);
+    function disposeCar(o) {
+        if (!o)
+            return;
+        o.parent && o.parent.remove(o);
+        o.traverse(m => {
+            if (!m.isMesh)
+                return;
+            if (![tireGeo, rimGeo, spokeGeo, capGeo].includes(m.geometry))
+                m.geometry.dispose();
+            if (m.material !== tireM && m.material !== rimM && m.material !== ball.mesh.material)
+                m.material.dispose();
+        });
+    }
+    function makeCar(skin, k = kind) {
+        const holder = new THREE.Group();
+        if (k === 'ball') {
+            const m = new THREE.Mesh(new THREE.SphereGeometry(1.6, 64, 40), ballMaterial(skin));
+            m.position.y = 1.62;
+            m.castShadow = true;
+            holder.add(m);
+            return holder;
+        }
+        const m = buildCarMesh(0, null, true, skin.team ? null : skin, holder);
+        m.g.position.y = CAR_Y + .02;
+        for (const w of m.wheels)
+            if (w.front)
+                w.pivot.rotation.y = -.32;
+        return holder;
+    }
+    function init() {
+        r2 = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true, powerPreference: 'high-performance' });
+        r2.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+        r2.outputColorSpace = THREE.SRGBColorSpace;
+        r2.toneMapping = THREE.ACESFilmicToneMapping;
+        r2.toneMappingExposure = .85;
+        r2.shadowMap.enabled = true;
+        r2.shadowMap.type = THREE.PCFSoftShadowMap;
+        pscene = new THREE.Scene();
+        const env = new THREE.Scene();
+        env.add(new THREE.Mesh(new THREE.SphereGeometry(50, 32, 16), new THREE.ShaderMaterial({
+            side: THREE.BackSide,
+            vertexShader: 'varying vec3 vD; void main(){ vD = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+            fragmentShader: 'varying vec3 vD; void main(){ vec3 d = normalize(vD); float h = d.y * .5 + .5; vec3 c = mix(vec3(.02,.025,.04), vec3(.28,.33,.45), pow(h, 1.6)); gl_FragColor = vec4(c, 1.0); }',
+        })));
+        const box = (w, h, x, y, z, k) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: new THREE.Color(k, k, k), side: THREE.DoubleSide })); m.position.set(x, y, z); m.lookAt(0, 0, 0); env.add(m); };
+        box(30, 8, 0, 40, 0, 9);
+        box(4, 30, 30, 18, -26, 7);
+        box(10, 24, 40, 10, 10, 3);
+        box(10, 24, -40, 8, -15, 2.2);
+        box(36, 3, 0, 6, -44, 3.5);
+        box(36, 3, 0, 6, 44, 2.5);
+        const pm = new THREE.PMREMGenerator(r2);
+        pscene.environment = pm.fromScene(env, .02).texture;
+        pm.dispose();
+        pscene.add(new THREE.HemisphereLight(0xcfdcff, 0x1a1d26, .5));
+        const key = new THREE.DirectionalLight(0xffffff, 2.4);
+        key.position.set(6, 12, 5);
+        key.castShadow = true;
+        key.shadow.mapSize.set(1024, 1024);
+        Object.assign(key.shadow.camera, { left: -5, right: 5, top: 5, bottom: -5, near: 1, far: 30 });
+        key.shadow.bias = -.0005;
+        key.shadow.normalBias = .02;
+        pscene.add(key);
+        const rim = new THREE.DirectionalLight(0x8fb6ff, 1.4);
+        rim.position.set(-7, 4, -8);
+        pscene.add(rim);
+        turntable = new THREE.Group();
+        pscene.add(turntable);
+        const disc = new THREE.Mesh(new THREE.CylinderGeometry(4.3, 4.5, .26, 72), new THREE.MeshStandardMaterial({ color: 0x151a26, metalness: .7, roughness: .35 }));
+        disc.position.y = -.13;
+        disc.receiveShadow = true;
+        turntable.add(disc);
+        ring = new THREE.Mesh(new THREE.TorusGeometry(4.38, .05, 8, 120), new THREE.MeshBasicMaterial({ color: 0x4b97ff, toneMapped: false }));
+        ring.rotation.x = Math.PI / 2;
+        ring.position.y = .02;
+        turntable.add(ring);
+        const glow = new THREE.Mesh(new THREE.RingGeometry(4.5, 6.2, 72), new THREE.MeshBasicMaterial({ color: 0x4b97ff, transparent: true, opacity: .12, depthWrite: false, toneMapped: false }));
+        glow.rotation.x = -Math.PI / 2;
+        glow.position.y = -.25;
+        pscene.add(glow);
+        pcam = new THREE.PerspectiveCamera(30, 1.6, .1, 200);
+        cv.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY }; vy = vp = 0; autoSpin = false; if (curKey) stopped.set(curKey, yaw); cv.setPointerCapture(e.pointerId); cv.classList.add('grab'); });
+        cv.addEventListener('pointermove', e => {
+            if (!drag)
+                return;
+            const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+            drag.x = e.clientX;
+            drag.y = e.clientY;
+            yaw += dx * .011;
+            pitch = clamp(pitch + dy * .006, -.05, 1.25);
+            vy = dx * .011;
+            vp = dy * .006;
+            idleT = 0;
+        });
+        const up = e => { drag = null; cv.classList.remove('grab'); };
+        cv.addEventListener('pointerup', up);
+        cv.addEventListener('pointercancel', up);
+        cv.addEventListener('wheel', e => { e.preventDefault(); dist = clamp(dist * (1 + Math.sign(e.deltaY) * .08), 6.5, 17); idleT = 0; }, { passive: false });
+        cv.addEventListener('dblclick', () => { yaw = .7; pitch = .32; dist = 10.5; vy = vp = 0; });
+        for (const s of SKINS)
+            thumbQ.push(['car', s.id]);
+        for (const b of BALLS)
+            thumbQ.push(['ball', b.id]);
+    }
+    function size() {
+        const w = cv.clientWidth, h = cv.clientHeight;
+        if (!w || !h)
+            return;
+        const pw = Math.round(w * r2.getPixelRatio()), ph = Math.round(h * r2.getPixelRatio());
+        if (cv.width !== pw || cv.height !== ph)
+            r2.setSize(w, h, false);
+        pcam.aspect = w / h;
+        pcam.updateProjectionMatrix();
+    }
+    function placeCam(y, p, d) {
+        pcam.position.set(Math.sin(y) * Math.cos(p) * d, TARGET.y + Math.sin(p) * d, Math.cos(y) * Math.cos(p) * d);
+        pcam.lookAt(TARGET);
+    }
+    function startThumbJob() {
+        if (thumbJob || !thumbQ.length)
+            return;
+        const [k, id] = thumbQ.shift();
+        const holder = makeCar(KIND[k].by[id], k), job = { k, id, holder, ready: false };
+        thumbJob = job;
+        r2.compileAsync(holder, pcam, pscene).then(() => { job.ready = true; }, () => { job.ready = true; });
+    }
+    function renderThumb() {
+        const { k, id, holder } = thumbJob;
+        thumbJob = null;
+        if (viewCar)
+            viewCar.visible = false;
+        turntable.add(holder);
+        const tt = turntable.rotation.y, ty = TARGET.y;
+        turntable.rotation.y = 0;
+        TARGET.y = KIND[k].target;
+        placeCam(.85, k === 'ball' ? .22 : .3, k === 'ball' ? 7.6 : 9.2);
+        r2.render(pscene, pcam);
+        const c = document.createElement('canvas');
+        c.width = 240;
+        c.height = 150;
+        const W = cv.width, H = cv.height, a = 240 / 150;
+        let sw = W, sh = W / a;
+        if (sh > H) {
+            sh = H;
+            sw = H * a;
+        }
+        c.getContext('2d').drawImage(cv, (W - sw) / 2, (H - sh) / 2, sw, sh, 0, 0, 240, 150);
+        thumbs[k + ':' + id] = c.toDataURL('image/png');
+        disposeCar(holder);
+        turntable.rotation.y = tt;
+        TARGET.y = ty;
+        if (viewCar)
+            viewCar.visible = true;
+        const img = k === kind && document.querySelector(`.skinCard[data-id="${id}"] img`);
+        if (img) {
+            img.src = thumbs[k + ':' + id];
+            img.classList.add('ready');
+        }
+    }
+    function showSkin(id) {
+        sel = id;
+        const k = kind, s = KIND[k].by[id], tok = ++showTok;
+        ring.material.color.set(s.team ? 0x4b97ff : (s.accent ? s.accent[0] : 0xffffff));
+        $('svName').textContent = s.name;
+        $('svRarity').textContent = RARITY[s.rarity].name;
+        $('svRarity').style.color = RARITY[s.rarity].css;
+        updateCards();
+        const holder = makeCar(s, k);
+        r2.compileAsync(holder, pcam, pscene).catch(() => { }).then(() => {
+            if (tok !== showTok || !open) {
+                disposeCar(holder);
+                return;
+            }
+            disposeCar(viewCar);
+            viewCar = holder;
+            turntable.add(holder);
+            TARGET.y = KIND[k].target;
+            curKey = k + ':' + id;
+            if (stopped.has(curKey)) {
+                autoSpin = false;
+                yaw = stopped.get(curKey);
+            }
+            else
+                autoSpin = true;
+            vy = 0;
+        });
+    }
+    function loop(now) {
+        if (!open)
+            return;
+        raf = requestAnimationFrame(loop);
+        const dt = Math.min(.05, (now - (lastT || now)) / 1000);
+        lastT = now;
+        SKIN_TIME.value = now / 1000;
+        size();
+        if (!drag) {
+            if (thumbJob && thumbJob.ready)
+                renderThumb();
+            else
+                startThumbJob();
+            idleT += dt;
+            vy *= Math.exp(-9 * dt);
+            vp *= Math.exp(-9 * dt);
+            if (Math.abs(vy) < .0006)
+                vy = 0;
+            if (Math.abs(vp) < .0006)
+                vp = 0;
+            yaw += vy;
+            pitch = clamp(pitch + vp, -.05, 1.25);
+            if (autoSpin)
+                yaw += dt * .35;
+        }
+        if (!autoSpin && curKey)
+            stopped.set(curKey, yaw);
+        turntable.rotation.y = yaw;
+        placeCam(0, pitch, dist);
+        r2.render(pscene, pcam);
+    }
+    function cardTag(s, owned, eq) {
+        return eq ? '<b class="tagEq">EQUIPPED</b>' : owned ? '<b class="tagOwn">OWNED</b>' : `<b class="tagPrice"><span class="coinIco"></span>${s.price.toLocaleString()}</b>`;
+    }
+    function buildGrid() {
+        const K = KIND[kind], grid = $('skinGrid'), frag = document.createDocumentFragment();
+        for (const s of K.list) {
+            const owned = K.owned().includes(s.id), th = thumbs[kind + ':' + s.id];
+            if (filter === 'owned' && !owned)
+                continue;
+            if (filter !== 'all' && filter !== 'owned' && +filter !== s.rarity)
+                continue;
+            const d = document.createElement('div');
+            d.className = 'skinCard';
+            d.dataset.id = s.id;
+            d.style.setProperty('--rc', RARITY[s.rarity].css);
+            d.innerHTML = `<img alt="" ${th ? `class="ready" src="${th}"` : ''}><div class="scName">${s.name}</div><div class="scFoot"><i>${RARITY[s.rarity].name}</i><span class="scTag"></span></div>`;
+            d.onclick = () => { if (sel !== s.id) showSkin(s.id); };
+            frag.appendChild(d);
+        }
+        grid.replaceChildren(frag);
+        updateCards();
+    }
+    function updateCards() {
+        updateCoinUI();
+        const K = KIND[kind];
+        for (const d of $('skinGrid').children) {
+            const s = K.by[d.dataset.id], owned = K.owned().includes(s.id), eq = K.eq === s.id;
+            d.classList.toggle('sel', sel === s.id);
+            d.classList.toggle('eq', eq);
+            const tag = d.querySelector('.scTag'), html = cardTag(s, owned, eq);
+            if (tag.innerHTML !== html)
+                tag.innerHTML = html;
+        }
+        const s = K.by[sel], owned = K.owned().includes(sel), btn = $('svAction');
+        let cls = 'big svAct', html, dis = false;
+        if (K.eq === sel) {
+            html = 'EQUIPPED';
+            dis = true;
+            cls += ' done';
+        }
+        else if (owned)
+            html = 'EQUIP';
+        else {
+            html = `BUY <span class="coinIco"></span>${s.price.toLocaleString()}`;
+            if (STORE.coins >= s.price)
+                cls += ' buy';
+            else {
+                dis = true;
+                cls += ' locked';
+            }
+        }
+        if (btn.innerHTML !== html)
+            btn.innerHTML = html;
+        btn.className = cls;
+        btn.disabled = dis;
+    }
+    function refresh() {
+        updateCards();
+    }
+    $('svAction').onclick = () => {
+        const K = KIND[kind], s = K.by[sel];
+        if (!K.owned().includes(sel)) {
+            if (STORE.coins < s.price)
+                return;
+            STORE.coins -= s.price;
+            K.owned().push(sel);
+            sfx.init && sfx.init();
+        }
+        K.eq = sel;
+        saveStore();
+        if (kind === 'ball' && attract)
+            applyBallSkin();
+        if (filter === 'owned')
+            buildGrid();
+        else
+            updateCards();
+    };
+    document.querySelectorAll('#kindTabs button').forEach(b => b.onclick = () => {
+        if (b.dataset.k === kind)
+            return;
+        document.querySelectorAll('#kindTabs button').forEach(x => x.classList.remove('on'));
+        b.classList.add('on');
+        kind = b.dataset.k;
+        dist = kind === 'ball' ? 13 : 10.5;
+        pitch = .32;
+        vy = vp = 0;
+        sel = KIND[kind].eq;
+        buildGrid();
+        $('skinGrid').scrollTop = 0;
+        showSkin(sel);
+    });
+    document.querySelectorAll('#storeTabs button').forEach(b => b.onclick = () => {
+        if (b.dataset.f === filter)
+            return;
+        document.querySelectorAll('#storeTabs button').forEach(x => x.classList.remove('on'));
+        b.classList.add('on');
+        filter = b.dataset.f;
+        buildGrid();
+        $('skinGrid').scrollTop = 0;
+    });
+    return {
+        get open() { return open; },
+        show() {
+            if (!r2)
+                init();
+            open = true;
+            from = $('choosePlay').classList.contains('hidden') ? 'menu' : 'choosePlay';
+            $(from).classList.add('hidden');
+            $('store').classList.remove('hidden');
+            sel = KIND[kind].eq;
+            buildGrid();
+            showSkin(sel);
+            lastT = 0;
+            idleT = 0;
+            autoSpin = true;
+            stopped.clear();
+            curKey = '';
+            raf = requestAnimationFrame(loop);
+        },
+        hide() {
+            open = false;
+            cancelAnimationFrame(raf);
+            $('store').classList.add('hidden');
+            $(from).classList.remove('hidden');
+            updateCoinUI();
+        },
+    };
+})();
+$('storeBtn').onclick = () => storeUI.show();
+$('storeClose').onclick = () => storeUI.hide();
+online.setSkin && online.setSkin(STORE.equipped);
+updateCoinUI();
+$('cancelSearch').onclick = () => { online.cancel(); toMenu(true); };
 let acc = 0, last = performance.now(), clockTime = 0;
 const camPos = new V3(0, 50, -150), camLook = new V3(), camLookT = new V3(), camPosT = new V3();
 let orbitA = 0, debugCam = null, camDirX = 0, camDirZ = 1, camSnap = true, camFlipBlend = 0;
 const _cn = new V3();
 function update(dt) {
     clockTime += dt;
+    if (online.active && !online.isHost) {
+        if (player) {
+            readPlayer(player);
+            if (paused) clearInput(player.input);
+            onlineInputTimer += dt;
+            if (onlineInputTimer >= 1 / 30) {
+                online.sendInput(serializeInput(player.input));
+                onlineInputTimer = 0;
+            }
+            if (!paused && state === 'play') {
+                acc = Math.min(acc + dt, .08);
+                while (acc >= STEP) {
+                    acc -= STEP;
+                    updateCar(player, player.input, STEP);
+                    confineCar(player);
+                }
+            } else acc = 0;
+        }
+        if (centerTimer > 0) centerTimer -= dt;
+        if (subTimer > 0) subTimer -= dt;
+        return;
+    }
     if (state === 'countdown') {
         countT -= dt;
         const n = Math.ceil(countT);
@@ -2833,10 +4209,17 @@ function update(dt) {
         predictBall();
         assignRoles();
         for (const c of cars) {
-            if (c.human)
-                readPlayer(c);
-            else
-                botThink(c, dt);
+            if (online.active) {
+                if (c.netSeat === online.seat) {
+                    readPlayer(c);
+                    if (paused) clearInput(c.input);
+                } else {
+                    const remote = remoteInputs.get(c.netSeat);
+                    if (remote && Date.now() - remote.at < 1500) useRemoteInput(c.input, remote.controls);
+                    else clearInput(c.input);
+                }
+            } else if (c.human) readPlayer(c);
+            else botThink(c, dt);
         }
         const scale = state === 'goal' && goalT > (attract ? 1.5 : 2.0) ? .35 : 1;
         acc += dt * scale;
@@ -3094,9 +4477,15 @@ function governor(rawDt, now) {
 document.addEventListener('visibilitychange', () => { perfHold(1500); last = performance.now(); sfx.pause(document.hidden || paused); });
 function frame(now) {
     requestAnimationFrame(frame);
+    if (online.active && !online.isHost && online.lastPacket && Date.now() - online.lastPacket > 11000) {
+        online.lost('Player disconnected. Match ended.', 'disconnect');
+    }
     const raw = (now - last) / 1000, dt = Math.min(.1, raw);
     last = now;
-    if (!paused)
+    SKIN_TIME.value = now / 1000;
+    if (storeUI.open && !online.active)
+        return;
+    if (!paused || online.active)
         update(dt);
     if (prNext) {
         prCur = prNext;
@@ -3104,7 +4493,14 @@ function frame(now) {
         prChanges++;
         renderer.setPixelRatio(prCur);
     }
-    render(paused ? 0 : dt);
+    if (online.active && online.isHost) {
+        onlineSnapshotTimer += dt;
+        if (onlineSnapshotTimer >= .05) {
+            online.sendSnapshot(onlineSnapshot());
+            onlineSnapshotTimer = 0;
+        }
+    }
+    render(paused && !online.active ? 0 : dt);
     governor(Math.min(raw, .25), now);
 }
 setupMatch(true);
@@ -3141,6 +4537,7 @@ window.NITRO = {
     }
   }
 })();
+
 </script>
 </body>
 </html>
