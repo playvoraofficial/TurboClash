@@ -2103,3 +2103,1661 @@ function assignRoles() {
     }
 }
 function startJump(c, hold, opts = {}) { c.ai.stage = 'jump'; c.ai.t = 0; c.ai.hold = hold; c.ai.opts = opts; }
+function botThink(c, dt) {
+    const inp = c.input, D = DIFF[settings.diff];
+    inp.throttle = 0;
+    inp.steer = 0;
+    inp.pitch = 0;
+    inp.roll = 0;
+    inp.jump = false;
+    inp.boost = false;
+    inp.slide = false;
+    if (freezeBots)
+        return;
+    if (state === 'goal') {
+        inp.throttle = .4;
+        inp.steer = Math.sin(simTime * 2 + c.pos.x);
+        return;
+    }
+    const ad = c.team === 0 ? 1 : -1, myGoalZ = -ad * HL, oppGoalZ = ad * HL;
+    const speed = c.vel.length();
+    const kickoff = kickoffT < 3.5 && ball.vel.lengthSq() < .01 && Math.abs(ball.pos.x) < .1 && Math.abs(ball.pos.z) < .1;
+    const st = c.ai.stage;
+    if (st && (st === 'flip' || st === 'dbl') && c.onGround)
+        c.ai.stage = null;
+    else if (st) {
+        c.ai.t += dt;
+        inp.throttle = 1;
+        if (st === 'jump') {
+            inp.jump = c.ai.t < c.ai.hold;
+            if (c.ai.t > c.ai.hold + 0.05)
+                c.ai.stage = c.ai.opts.flip ? 'flip' : c.ai.opts.dbl ? 'dbl' : 'air', c.ai.t = 0;
+        }
+        else if (st === 'flip') {
+            inp.jump = true;
+            inp.pitch = c.ai.opts.pitch ?? 1;
+            inp.steer = c.ai.opts.steer ?? 0;
+            if (c.ai.t > 0.05)
+                c.ai.stage = 'air';
+            return;
+        }
+        else if (st === 'dbl') {
+            inp.jump = true;
+            if (c.ai.t > 0.05)
+                c.ai.stage = 'air';
+        }
+        if (!c.onGround) {
+            _qi.copy(c.q).invert();
+            _a.subVectors(ball.pos, c.pos).applyQuaternion(_qi);
+            const yawErr = Math.atan2(_a.x, _a.z), pitchErr = Math.atan2(_a.y, Math.hypot(_a.x, _a.z));
+            if (!c.flipping && c.ai.stage !== 'flip') {
+                inp.steer = clamp(yawErr * 2.5, -1, 1);
+                inp.pitch = clamp(-pitchErr * 2.5, -1, 1);
+                _b.set(1, 0, 0).applyQuaternion(c.q);
+                inp.roll = clamp(-_b.y * 2, -1, 1);
+                if (c.ai.opts.aerial && Math.abs(yawErr) < .5 && Math.abs(pitchErr) < .5 && c.airTime > .15)
+                    inp.boost = true;
+            }
+            return;
+        }
+        if (c.ai.stage === 'air' || c.airTime > 0) {
+            if (c.onGround && c.ai.t > .1)
+                c.ai.stage = null;
+        }
+        if (c.ai.stage)
+            return;
+    }
+    let ti = -1;
+    const est = Math.max(speed, D.est);
+    for (let i = 1; i <= PRED_N; i++) {
+        const bp = pred[i];
+        if (bp.y > D.reach && !(wallBall(bp) && bp.z * ad > -20))
+            continue;
+        const d = Math.hypot(bp.x - c.pos.x, (bp.y - c.pos.y) * .7, bp.z - c.pos.z) - BR - 2;
+        if (d / est <= i * PRED_DT) {
+            ti = i;
+            break;
+        }
+    }
+    let danger = -1;
+    for (let i = 1; i <= PRED_N; i++)
+        if (pred[i].z * ad < -(HL - BR) && Math.abs(pred[i].x) < GW / 2 + 2) {
+            danger = i;
+            break;
+        }
+    if (ti < 0)
+        ti = PRED_N;
+    const bp = pred[ti];
+    let wantBoost = false, arrive = false;
+    let role = kickoff && c.role === 'attack' ? 'kickoff' : c.role;
+    if (danger > 0 && (ti >= danger || pred[ti].y > D.reach) && role !== 'support')
+        role = 'save';
+    if (role === 'save') {
+        const g = pred[danger];
+        _t.set(clamp(g.x, -GW / 2 + 4, GW / 2 - 4), 0, myGoalZ + ad * 5);
+        if (Math.hypot(_t.x - c.pos.x, _t.z - c.pos.z) < 10)
+            _t.set(bp.x, 0, bp.z);
+        wantBoost = true;
+    }
+    else if (role === 'kickoff') {
+        _t.set(0, 0, -ad * 1.8);
+        wantBoost = true;
+    }
+    else if (role === 'attack' && wallBall(bp) && bp.z * ad > -20) {
+        _t.set(bp.x, bp.y, bp.z);
+        wantBoost = Math.hypot(bp.x - c.pos.x, bp.y - c.pos.y, bp.z - c.pos.z) > D.boostDist;
+    }
+    else if (role === 'attack') {
+        const aimX = clamp(bp.x * .4, -GW / 2 + 7, GW / 2 - 7);
+        let dx = aimX - bp.x, dz = oppGoalZ - bp.z;
+        const dl = Math.hypot(dx, dz);
+        dx /= dl;
+        dz /= dl;
+        const tmx = c.pos.x - bp.x, tmz = c.pos.z - bp.z;
+        const along = tmx * dx + tmz * dz, lat = tmx * -dz + tmz * dx, dist = Math.hypot(tmx, tmz);
+        if (along > -2) {
+            const side = lat >= 0 ? 1 : -1;
+            _t.set(bp.x - dx * 12 + -dz * side * 11, 0, bp.z - dz * 12 + dx * side * 11);
+            wantBoost = dist > 24;
+        }
+        else {
+            const k = Math.min(dist * .35, 14);
+            if (dist < 13)
+                _t.set(bp.x, 0, bp.z);
+            else
+                _t.set(bp.x - dx * k, 0, bp.z - dz * k);
+            wantBoost = dist > D.boostDist || dist < 10;
+        }
+    }
+    else if (role === 'support') {
+        _t.set(bp.x * .5, 0, clamp(bp.z - ad * 55, -HL + 15, HL - 15));
+        arrive = true;
+        wantBoost = Math.hypot(_t.x - c.pos.x, _t.z - c.pos.z) > 60;
+    }
+    else {
+        _t.set(clamp(ball.pos.x * .35, -GW / 2 + 4, GW / 2 - 4), 0, myGoalZ + ad * 6);
+        arrive = true;
+        wantBoost = Math.hypot(_t.x - c.pos.x, _t.z - c.pos.z) > 50;
+    }
+    if (!(role === 'attack' && _t.y > 1)) {
+        _t.x = clamp(_t.x, -(HW - RF - 3), HW - RF - 3);
+        _t.z = Math.abs(_t.x) < GW / 2 - 2 ? clamp(_t.z, -HL - 6, HL + 6) : clamp(_t.z, -(HL - RF - 3), HL - RF - 3);
+    }
+    const dist = Math.hypot(_t.x - c.pos.x, _t.y - c.pos.y, _t.z - c.pos.z);
+    const ang = steerAng(c, _t.x, _t.y, _t.z);
+    inp.steer = clamp(ang * 2.6, -1, 1);
+    inp.throttle = D.throttle;
+    if (Math.abs(ang) > 1.3 && speed > 18)
+        inp.slide = true;
+    const turnRate = lerp(3.3, 1.75, Math.min(speed / MAX_BOOST, 1)), radius = speed / turnRate;
+    if (Math.abs(ang) > .55 && dist < radius * 1.7) {
+        inp.throttle = speed > 14 ? -.6 : .6;
+        inp.slide = Math.abs(ang) > 1;
+        wantBoost = false;
+    }
+    if (arrive) {
+        if (dist < 5)
+            inp.throttle = 0;
+        else if (dist < 20)
+            inp.throttle = D.throttle * Math.max(.25, dist / 20);
+        if (speed > dist * 2.2 + 4 && Math.abs(ang) < 1)
+            inp.throttle = -1;
+    }
+    if (wantBoost && Math.abs(ang) < .3 && c.boost > D.reserve && speed < MAX_BOOST - 2)
+        inp.boost = true;
+    if (kickoff && Math.abs(ang) < .5)
+        inp.boost = c.boost > 0;
+    if (c.onGround && inp.throttle > .5 && speed < 3)
+        c.ai.stuck += dt;
+    else
+        c.ai.stuck = 0;
+    if (c.ai.stuck > .8) {
+        c.ai.rev = .7;
+        c.ai.stuck = 0;
+    }
+    if (c.ai.rev > 0) {
+        c.ai.rev -= dt;
+        inp.throttle = -1;
+        inp.steer = -inp.steer;
+        inp.boost = false;
+    }
+    if (c.onGround && c.n.y < -.3) {
+        inp.throttle = 0;
+        inp.boost = false;
+    }
+    if (!c.onGround || c.n.y < .9 || role === 'support' || (role === 'defend' && dist > 24))
+        return;
+    const hd = Math.hypot(ball.pos.x - c.pos.x, ball.pos.z - c.pos.z);
+    const bAng = steerAng(c, ball.pos.x, ball.pos.y, ball.pos.z), by = ball.pos.y;
+    if (kickoff) {
+        if (D.flip && hd < 13 && Math.abs(bAng) < .3)
+            startJump(c, .05, { flip: true, pitch: 1, steer: 0 });
+        return;
+    }
+    const goodSide = (ball.pos.z - c.pos.z) * ad > -2;
+    if (hd < BR + 6 && Math.abs(bAng) < .7) {
+        if (by > 5.4 && by < 8.8)
+            startJump(c, .14);
+        else if (by >= 8.8 && by < 12.5 && D.dbl)
+            startJump(c, .2, { dbl: true });
+        else if (by <= 5.4 && D.flip && hd < BR + 5.5 && speed > 24 && goodSide && Math.abs(bAng) < .25 && Math.random() < D.flipChance)
+            startJump(c, .06, { flip: true, pitch: 1, steer: clamp(bAng * 2, -1, 1) });
+    }
+    else if (D.aerial && by > 12.5 && by < FH - 6 && hd < 20 && hd > 5 && c.boost > 30 && goodSide && Math.abs(bAng) < .35 && ball.vel.y < 6) {
+        startJump(c, .2, { aerial: true });
+    }
+}
+const keys = {};
+let mouseJump = false, padPrev = {};
+addEventListener('keydown', e => {
+    if (e.target && ['INPUT','TEXTAREA'].includes(e.target.tagName)) return;
+    if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.code))
+        e.preventDefault();
+    keys[e.code] = true;
+    if (e.repeat)
+        return;
+    if (e.code === 'Escape' && storeUI.open) {
+        storeUI.hide();
+        return;
+    }
+    if (e.code === 'Escape' || e.code === 'KeyP')
+        togglePause();
+});
+addEventListener('keyup', e => { keys[e.code] = false; });
+addEventListener('blur', () => { for (const k in keys)
+    keys[k] = false; mouseJump = false; });
+$('gl').addEventListener('mousedown', e => { if (e.button === 2)
+    mouseJump = true; });
+addEventListener('mouseup', e => { if (e.button === 2)
+    mouseJump = false; });
+addEventListener('contextmenu', e => e.preventDefault());
+function readPlayer(c) {
+    const k = keys, inp = c.input;
+    const f = (k.KeyW || k.ArrowUp ? 1 : 0) - (k.KeyS || k.ArrowDown ? 1 : 0);
+    const s = (k.KeyA || k.ArrowLeft ? 1 : 0) - (k.KeyD || k.ArrowRight ? 1 : 0);
+    inp.throttle = f;
+    inp.pitch = f;
+    inp.steer = s;
+    inp.roll = (k.KeyE ? 1 : 0) - (k.KeyQ ? 1 : 0);
+    inp.jump = !!(k.Space || mouseJump);
+    inp.boost = !!(k.ShiftLeft || k.ShiftRight);
+    inp.slide = !!k.KeyX;
+    const gp = [...(navigator.getGamepads ? navigator.getGamepads() : [])].find(g => g && g.connected);
+    if (gp) {
+        const dz = v => Math.abs(v) < .15 ? 0 : v, b = i => gp.buttons[i] && gp.buttons[i].pressed, bv = i => gp.buttons[i] ? gp.buttons[i].value : 0;
+        const ax = dz(gp.axes[0] || 0), ay = dz(gp.axes[1] || 0), thr = bv(7) - bv(6);
+        if (Math.abs(thr) > .05)
+            inp.throttle = thr;
+        if (ax)
+            inp.steer = -ax;
+        if (ay)
+            inp.pitch = -ay;
+        if (b(4))
+            inp.roll = -1;
+        if (b(5))
+            inp.roll = 1;
+        inp.jump = inp.jump || b(0);
+        inp.boost = inp.boost || b(1);
+        inp.slide = inp.slide || b(2);
+        if (b(9) && !padPrev.st)
+            togglePause();
+        padPrev = { st: b(9) };
+    }
+}
+const sfx = {
+    init() { }, engine() { }, crowd() { }, swell() { }, playResult() { },
+    stopResult() { }, stopGoal() { }, pause() { }, hit() { }, bounce() { },
+    bump() { }, jump() { }, beep() { }, goal() { }
+};
+let state = 'menu', attract = true, paused = false;
+let player = null, scoreArr = [0, 0], timeLeft = 300, overtime = false, otTime = 0;
+let countT = 0, goalT = 0, kickoffT = 0, lastCount = 0, matchOverAfterGoal = false;
+let lastTouch = [null, null], lastToucher = null, ignoredOwnGoal = false, shake = 0, touchInfo = null, exciteB = 0, exciteR = 0, tension = 0;
+const goalLog = [];
+function setupMatch(isAttract) {
+    attract = isAttract;
+    applyBallSkin();
+    clearCars();
+    const n = isAttract ? 2 : settings.mode;
+    const names = [...BOT_NAMES].sort(() => Math.random() - .5);
+    let ni = 0;
+    for (const team of [0, 1])
+        for (let i = 0; i < n; i++) {
+            const human = !isAttract && team === 0 && i === 0;
+            cars.push(createCar(team, human ? playerName : names[ni++], human));
+        }
+    player = cars.find(c => c.human) || null;
+    recInit();
+    lastGoalReplay = null;
+    scoreArr = [0, 0];
+    timeLeft = settings.len;
+    overtime = false;
+    otTime = 0;
+    $('clock').classList.remove('ot', 'last-minute');
+    updateScoreHud();
+    resetKickoff();
+}
+function setupOnlineMatch() {
+    attract = false;
+    applyBallSkin();
+    clearCars();
+    remoteInputs.clear();
+    for (const team of [0, 1]) {
+        for (let i = 0; i < settings.mode; i++) {
+            const seat = 2 * i + team;
+            const human = online.seat === seat;
+            const c = createCar(team, online.names.get(seat) || (human ? playerName : `PLAYER ${seat + 1}`), human, human ? undefined : (SKIN_BY_ID[online.skins.get(seat)] || null));
+            c.netSeat = seat;
+            cars.push(c);
+        }
+    }
+    player = cars.find(c => c.human) || null;
+    recInit(); lastGoalReplay = null;
+    scoreArr = [0, 0]; timeLeft = settings.len;
+    overtime = false; otTime = 0;
+    $('clock').classList.remove('ot', 'last-minute');
+    updateScoreHud(); resetKickoff();
+}
+function onlineSnapshot() {
+    return {
+        state, timeLeft, overtime, otTime, scores: [...scoreArr], countT, goalT,
+        playerNames: cars.map(c=>({seat:c.netSeat,name:c.name,skin:c.skinId})),
+        scorerSeat: replayScorer >= 0 ? cars[replayScorer]?.netSeat ?? null : null, goalTeam: lastGoalTeam,
+        ball: { pos: ball.pos.toArray(), vel: ball.vel.toArray(), spin: ball.spin.toArray(), active: ball.active },
+        cars: cars.map(c => ({ seat: c.netSeat, pos: c.pos.toArray(), vel: c.vel.toArray(),
+            q: c.q.toArray(), n: c.n.toArray(), fwd: c.fwd.toArray(),
+            jumpN: c.jumpN.toArray(), canFlip: c.canFlip,
+            boost: c.boost, boostIdle: c.boostIdle,
+            boosting: c.boosting, onGround: c.onGround, supersonic: c.supersonic,
+            steer: c.input.steer, stats: c.stats })),
+    };
+}
+function onlineApplySnapshot(snap) {
+    if (!online.active || online.isHost || !Array.isArray(snap.cars) || snap.cars.length !== settings.mode * 2) return;
+    const previous = state;
+    if (Array.isArray(snap.playerNames)) {
+        for (const p of snap.playerNames) {
+            if (!p || !Number.isInteger(p.seat) || !usernamePattern.test(p.name || '')) continue;
+            if (p.seat === online.seat) continue;
+            const c = cars.find(c => c.netSeat === p.seat);
+            if (c && typeof p.skin === 'string') repaintCar(c, p.skin);
+            if (!c || c.name === p.name) continue;
+            const oldTag = c.mesh.userData.nameTag;
+            if (oldTag) {
+                c.mesh.remove(oldTag);
+                oldTag.material.map.dispose();
+                oldTag.material.dispose();
+            }
+            c.name = p.name;
+            c.mesh.userData.nameTag = makeNameTag(p.name,TEAM_CSS[c.team]);
+            c.mesh.add(c.mesh.userData.nameTag);
+        }
+    }
+    timeLeft = snap.timeLeft; overtime = !!snap.overtime; otTime = snap.otTime;
+    scoreArr = snap.scores;
+    updateScoreHud();
+    $('clock').classList.toggle('ot', overtime);
+    if (snap.ball && Array.isArray(snap.ball.pos)) {
+        ball.pos.fromArray(snap.ball.pos);
+        ball.vel.fromArray(snap.ball.vel);
+        ball.spin.fromArray(snap.ball.spin);
+        ball.active = !!snap.ball.active;
+        ball.mesh.visible = ball.active;
+    }
+    for (const data of snap.cars) {
+        const c = cars.find(x => x.netSeat === data.seat);
+        if (!c || !Array.isArray(data.pos) || !Array.isArray(data.vel) || !Array.isArray(data.q)) continue;
+        _netPos.fromArray(data.pos); _netVel.fromArray(data.vel); _netQ.fromArray(data.q);
+        const predicted = data.seat === online.seat && state === 'play' && snap.state === 'play';
+        if (predicted) {
+            if (c.pos.distanceToSquared(_netPos) > 225) {
+                c.pos.copy(_netPos); c.vel.copy(_netVel); c.q.copy(_netQ);
+            } else {
+                c.pos.lerp(_netPos, .22);
+                c.vel.lerp(_netVel, .3);
+                c.q.slerp(_netQ, .28);
+            }
+        } else {
+            c.pos.copy(_netPos); c.vel.copy(_netVel); c.q.copy(_netQ);
+        }
+        if (Array.isArray(data.n)) {
+            if (predicted) c.n.lerp(_netPos.fromArray(data.n), .35).normalize();
+            else c.n.fromArray(data.n);
+        }
+        if (Array.isArray(data.fwd)) {
+            if (predicted) c.fwd.lerp(_netPos.fromArray(data.fwd), .35).normalize();
+            else c.fwd.fromArray(data.fwd);
+            c.yaw = Math.atan2(c.fwd.x, c.fwd.z);
+        }
+        if (Array.isArray(data.jumpN)) c.jumpN.fromArray(data.jumpN);
+        if (!predicted) c.canFlip = !!data.canFlip;
+        c.boost = data.boost; c.boostIdle = data.boostIdle;
+        c.boosting = !!data.boosting; c.onGround = !!data.onGround;
+        c.supersonic = !!data.supersonic;
+        if (!predicted) c.input.steer = data.steer;
+        c.stats = data.stats;
+    }
+    state = snap.state === 'replay' ? 'goal' : snap.state;
+    if (previous !== state) {
+        if (state === 'goal') {
+            showCenter('GOAL!', 1.5, '#fff');
+            const scorer = cars.find(c => c.netSeat === snap.scorerSeat);
+            const scorerName = scorer ? scorer.name : TEAM_NAME[snap.goalTeam] || 'TEAM';
+            showSub(`${scorerName} SCORED!`, 1.5);
+        }
+        if (state === 'countdown') {
+            $('center').classList.remove('show');
+            $('sub').classList.remove('show');
+            centerTimer = subTimer = 0;
+            camSnap = true;
+        }
+        if (state === 'play' && previous === 'countdown') showCenter('GO!', .7, '#7dff9a');
+        if (state === 'ended') endMatch();
+    }
+}
+const SPOTS = [[-64, -82], [64, -82], [-8, -124], [8, -124], [0, -148]];
+function resetKickoff() {
+    ball.pos.set(0, BR, 0);
+    ball.vel.set(0, 0, 0);
+    ball.spin.set(0, 0, 0);
+    ballStuckFor = 0;
+    ball.active = true;
+    ball.mesh.visible = true;
+    const spots = [...SPOTS].sort(() => Math.random() - .5);
+    const blue = cars.filter(c => c.team === 0), red = cars.filter(c => c.team === 1);
+    if (player && (!online.active || online.isHost)) {
+        const idx = blue.indexOf(player);
+        if (idx >= 0) { blue.splice(idx, 1); blue.unshift(player); }
+    }
+    for (let i = 0; i < blue.length; i++) {
+        const [x, z] = spots[i];
+        placeCar(blue[i], x, z);
+        placeCar(red[i], -x, -z);
+    }
+    lastTouch = [null, null];
+    lastToucher = null;
+    ignoredOwnGoal = false;
+    if (rec) {
+        rec.head = 0;
+        rec.count = 0;
+    }
+    lastRecT = -1;
+    replay = null;
+    $('hud').classList.remove('replaying');
+    state = 'countdown';
+    $('center').classList.remove('show');
+    $('sub').classList.remove('show');
+    centerTimer = subTimer = 0;
+    countT = attract ? 1 : 3;
+    lastCount = 0;
+    kickoffT = 0;
+    acc = 0;
+    if (!attract) {
+        camSnap = true;
+        camFlipBlend = 0;
+    }
+}
+function placeCar(c, x, z) {
+    if (!c)
+        return;
+    c.pos.set(x, CAR_Y, z);
+    c.vel.set(0, 0, 0);
+    c.yaw = Math.atan2(-x, -z);
+    c.n.set(0, 1, 0);
+    c.fwd.set(Math.sin(c.yaw), 0, Math.cos(c.yaw));
+    c.jumpN.set(0, 1, 0);
+    setOrientation(c);
+    c.onGround = true;
+    c.flipping = false;
+    c.canFlip = false;
+    c.boost = 100;
+    c.boostIdle = 0;
+    c.stun = 0;
+    c.mesh.visible = true;
+    c.boosting = false;
+    c.ai.stage = null;
+    c.ai.stuck = 0;
+    c.ai.rev = 0;
+    c.prevJump = true;
+    c.angVel.set(0, 0, 0);
+}
+function onGoal(team) {
+    recFrame();
+    goalLog.push({ team, touch: touchInfo, t: +simTime.toFixed(2) });
+    scoreArr[team]++;
+    updateScoreHud();
+    lastGoalTeam = team;
+    const scorer = lastTouch[team];
+    replayScorer = scorer ? cars.indexOf(scorer) : -1;
+    saveLastGoalReplay();
+    if (scorer)
+        scorer.stats.goals++;
+    burst(ball.pos, TEAM_COL[team], 460, 60, 1.9);
+    burst(ball.pos, 0xffffff, 140, 38, 1.3);
+    shock.position.set(ball.pos.x, ball.pos.y, Math.sign(ball.pos.z) * HL);
+    shock.material.color.set(TEAM_COL[team]);
+    shock.visible = true;
+    shockT = 1;
+    ball.active = false;
+    ball.mesh.visible = false;
+    state = 'goal';
+    goalT = attract ? 2.5 : 2.8;
+    shake = .8;
+    if (team === 0) {
+        exciteB = 1;
+        exciteR = 0;
+    }
+    else {
+        exciteR = 1;
+        exciteB = 0;
+    }
+    matchOverAfterGoal = overtime || timeLeft <= 0;
+    if (!attract) {
+        sfx.goal(!player || team === player.team);
+        const own = !scorer && lastToucher;
+        showCenter('GOAL!', 2.4, TEAM_CSS[team]);
+        showSub(scorer ? `${scorer.name} SCORED${scorer.human ? '!' : ''}` : own ? `OWN GOAL BY ${lastToucher.name}` : `${TEAM_NAME[team]} SCORED!`, 2.4);
+        feed(`<span style="color:${TEAM_CSS[team]}">${scorer ? scorer.name : TEAM_NAME[team]}</span> scored`);
+    }
+}
+function endMatch() {
+    state = 'ended';
+    const win = scoreArr[0] > scoreArr[1] ? 0 : 1, r = $('result');
+    r.textContent = win === (player ? player.team : 0) ? 'VICTORY' : 'DEFEAT';
+    r.style.color = win === 0 ? TEAM_CSS[0] : TEAM_CSS[1];
+    $('finalScore').innerHTML = `<span style="color:${TEAM_CSS[0]}">${scoreArr[0]}</span> &nbsp;—&nbsp; <span style="color:${TEAM_CSS[1]}">${scoreArr[1]}</span>`;
+    let h = '<tr><th>PLAYER</th><th>GOALS</th><th>SHOTS</th><th>SAVES</th><th>TOUCHES</th></tr>';
+    for (const c of [...cars].sort((a, b) => a.team - b.team || b.stats.goals - a.stats.goals))
+        h += `<tr class="${c.team ? 'to' : 'tb'} ${c.human ? 'me' : ''}"><td>${c.name}</td><td>${c.stats.goals}</td><td>${c.stats.shots}</td><td>${c.stats.saves}</td><td>${c.stats.touches}</td></tr>`;
+    $('stats').innerHTML = h;
+    $('coinGain').innerHTML = '';
+    if (player && !attract) {
+        const won = win === player.team;
+        const earn = won ? (online.active ? 200 : [100, 200, 300][settings.diff] || 100) : 0;
+        STORE.coins += earn;
+        saveStore();
+        updateCoinUI();
+        $('coinGain').innerHTML = `<span class="coinIco"></span>+${earn} COINS`;
+    }
+    $('end').classList.remove('hidden');
+    $('hud').classList.add('hidden');
+    sfx.engine(0, false, false);
+    sfx.playResult(win === (player ? player.team : 0));
+}
+function updateScoreHud() { $('sB').textContent = scoreArr[0]; $('sO').textContent = scoreArr[1]; }
+let centerTimer = 0, subTimer = 0;
+function showCenter(text, dur, col = '#fff') { const e = $('center'); e.textContent = text; e.style.color = col; e.classList.add('show'); centerTimer = dur; }
+function showSub(text, dur) { const e = $('sub'); e.textContent = text; e.classList.add('show'); subTimer = dur; }
+function feed(html) { if (attract)
+    return; const d = document.createElement('div'); d.innerHTML = html; $('feed').prepend(d); setTimeout(() => d.remove(), 4500); while ($('feed').children.length > 5)
+    $('feed').lastChild.remove(); }
+function fmt(t) { t = Math.max(0, Math.ceil(t)); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; }
+function togglePause() {
+    if (attract || state === 'ended' || online.active)
+        return;
+    paused = !paused;
+    $('pause').classList.toggle('hidden', !paused);
+    $('pauseTitle').textContent = 'PAUSED';
+    $('restartBtn').classList.toggle('hidden', online.active);
+    sfx.pause(paused);
+}
+document.querySelectorAll('.seg').forEach(seg => seg.addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b)
+        return;
+    seg.querySelectorAll('button').forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+    settings[seg.dataset.key] = +b.dataset.v;
+}));
+function startGame() {
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    sfx.init();
+    sfx.stopGoal();
+    sfx.stopResult();
+    perfHold(3000);
+    $('menu').classList.add('hidden');
+    $('end').classList.add('hidden');
+    $('pause').classList.add('hidden');
+    $('hud').classList.remove('hidden');
+    $('feed').innerHTML = '';
+    paused = false;
+    setupMatch(false);
+}
+function showChoices() {
+    $('choosePlay').classList.remove('hidden');
+    $('menu').classList.add('hidden');
+    $('matchSearch').classList.add('hidden');
+}
+function showMatchOptions(which) {
+    playType = which;
+    $('difficultyLabel').textContent = which === 'online' ? 'SKILL LEVEL' : 'BOTS';
+    $('choosePlay').classList.add('hidden');
+    $('menu').classList.remove('hidden');
+}
+const ONLINE_ERROR_HTML = 'Sorry, something went wrong. Please try again later. If this problem persists, please contact <span class="pvName">Play<span class="vora">vora</span></span> support.';
+const ONLINE_OK_MESSAGES = ['No other player joined this search. Try again.', 'That matchmaking room closed. Try again.'];
+function setSearchError(heading) {
+    setSearch(heading, ' ', false);
+    $('searchDetail').innerHTML = ONLINE_ERROR_HTML;
+}
+function setSearch(heading, detail, showSpinner = true) {
+    $('menu').classList.add('hidden');
+    $('matchSearch').classList.remove('hidden');
+    $('searchHeading').textContent = heading;
+    $('searchDetail').textContent = showSpinner ? '' : detail;
+    $('searchDetail').classList.toggle('hidden', showSpinner || !detail);
+    document.querySelector('.search-spinner').classList.toggle('hidden', !showSpinner);
+    $('cancelSearch').textContent = showSpinner ? 'CANCEL SEARCH' : 'BACK TO MENU';
+}
+async function searchRealPlayer() {
+    setSearch('SEARCHING FOR A MATCH', '');
+    online.onFound = () => setSearch('JOINING MATCH', '');
+    online.onStart = () => {
+        if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+        sfx.init(); sfx.stopGoal(); sfx.stopResult();
+        perfHold(3000);
+        $('matchSearch').classList.add('hidden');
+        $('end').classList.add('hidden');
+        $('pause').classList.add('hidden');
+        $('hud').classList.remove('hidden');
+        $('feed').innerHTML = '';
+        paused = false;
+        onlineInputTimer = onlineSnapshotTimer = 0;
+        setupOnlineMatch();
+    };
+    online.onInput = p => {
+        if (online.isHost && Number.isInteger(p.seat) && p.seat >= 0 && p.seat < settings.mode * 2 && p.seat !== online.seat) {
+            remoteInputs.set(p.seat, { controls: p.controls, at: Date.now() });
+        }
+    };
+    online.onSnapshot = onlineApplySnapshot;
+    online.onSkin = (seat, id) => { const c = cars.find(c => c.netSeat === seat); if (c) repaintCar(c, id); };
+    online.onLost = (message, reason) => {
+        toMenu(true);
+        $('choosePlay').classList.add('hidden');
+        if (reason === 'disconnect') setSearch('PLAYER DISCONNECTED', 'MATCH ENDED', false);
+        else if (ONLINE_OK_MESSAGES.includes(message)) setSearch('ONLINE MATCH ENDED', message, false);
+        else setSearchError('ONLINE MATCH ENDED');
+    };
+    try { await online.search(settings); }
+    catch (err) {
+        console.warn('Online search failed:', err);
+        setSearchError('ONLINE UNAVAILABLE');
+    }
+}
+function toMenu(backToChoice = true) {
+    if (online.active || online.finding || online.room) online.cancel();
+    $('matchSearch').classList.add('hidden');
+    paused = false;
+    sfx.pause(false);
+    sfx.stopGoal();
+    sfx.stopResult();
+    sfx.engine(0, false, false);
+    ['pause', 'end', 'hud'].forEach(id => $(id).classList.add('hidden'));
+    $('menu').classList.toggle('hidden', backToChoice);
+    $('choosePlay').classList.toggle('hidden', !backToChoice);
+    $('center').classList.remove('show');
+    $('sub').classList.remove('show');
+    setupMatch(true);
+    camSnap = true;
+    perfHold(2500);
+}
+let rec = null, lastRecT = -1, replay = null, replayScorer = -1, lastGoalReplay = null;
+const _rq0 = new Q4(), _rq1 = new Q4();
+function recInit() { const stride = 12 + cars.length * 11, cap = 600; rec = { stride, cap, buf: new Float32Array(stride * cap), head: 0, count: 0 }; lastRecT = -1; }
+function recFrame() {
+    if (!rec || attract)
+        return;
+    const b = rec.buf, o = rec.head * rec.stride, bq = ball.mesh.quaternion;
+    b[o] = simTime;
+    b[o + 1] = ball.pos.x;
+    b[o + 2] = ball.pos.y;
+    b[o + 3] = ball.pos.z;
+    b[o + 4] = bq.x;
+    b[o + 5] = bq.y;
+    b[o + 6] = bq.z;
+    b[o + 7] = bq.w;
+    b[o + 8] = ball.vel.x;
+    b[o + 9] = ball.vel.y;
+    b[o + 10] = ball.vel.z;
+    b[o + 11] = 1;
+    let k = o + 12;
+    for (const c of cars) {
+        b[k] = c.pos.x;
+        b[k + 1] = c.pos.y;
+        b[k + 2] = c.pos.z;
+        b[k + 3] = c.q.x;
+        b[k + 4] = c.q.y;
+        b[k + 5] = c.q.z;
+        b[k + 6] = c.q.w;
+        b[k + 7] = c.vel.x;
+        b[k + 8] = c.vel.y;
+        b[k + 9] = c.vel.z;
+        b[k + 10] = c.boosting ? 1 : 0;
+        k += 11;
+    }
+    rec.head = (rec.head + 1) % rec.cap;
+    rec.count = Math.min(rec.count + 1, rec.cap);
+}
+function saveLastGoalReplay() {
+    if (!rec || rec.count < 20) {
+        lastGoalReplay = null;
+        return;
+    }
+    const n = rec.count, S = rec.stride, cap = rec.cap;
+    const start = (rec.head - n + cap) % cap;
+    const buf = new Float32Array(n * S);
+    for (let i = 0; i < n; i++) {
+        const pos = (start + i) % cap * S;
+        buf.set(rec.buf.subarray(pos, pos + S), i * S);
+    }
+    lastGoalReplay = { stride: S, cap: n, buf, head: 0, count: n };
+}
+function finishMatch() {
+    if (!attract && lastGoalReplay && startReplay(true))
+        return;
+    endMatch();
+}
+function startReplay(final = false) {
+    const source = final ? lastGoalReplay : rec;
+    if (!source || source.count < 20)
+        return false;
+    const n = source.count, cap = source.cap, st = (source.head - n + cap) % cap, idx = [], S = source.stride;
+    for (let i = 0; i < n; i++)
+        idx.push((st + i) % cap);
+    const tEnd = source.buf[idx[n - 1] * S], tStart = Math.max(source.buf[idx[0] * S], tEnd - 5.2);
+    let k = 0;
+    while (k < n - 2 && source.buf[idx[k + 1] * S] <= tStart)
+        k++;
+    replay = { source, final, idx, tStart, tEnd, t: tStart, k, team: lastGoalTeam, scorer: replayScorer, cut: false, snapped: false, hold: 0, goalSlow: false, slowBlend: 0 };
+    state = 'replay';
+    ball.active = true;
+    ball.mesh.visible = true;
+    shock.visible = false;
+    shockT = 0;
+    const sc = replayScorer >= 0 ? cars[replayScorer] : null;
+    $('replayBadge').style.background = lastGoalTeam ? 'linear-gradient(180deg,#ff5050,#c4161c)' : 'linear-gradient(180deg,#4b97ff,#1c5fd6)';
+    $('replayBadge').innerHTML = '<i></i>' + (final ? 'FINAL REPLAY' : 'REPLAY');
+    $('replayWho').textContent = `${sc ? sc.name : TEAM_NAME[lastGoalTeam]} SCORED!`;
+    $('hud').classList.add('replaying');
+    $('center').classList.remove('show');
+    $('sub').classList.remove('show');
+    centerTimer = subTimer = 0;
+    replayApply();
+    return true;
+}
+function replayApply() {
+    const r = replay, b = r.source.buf, S = r.source.stride, idx = r.idx;
+    while (r.k < idx.length - 2 && b[idx[r.k + 1] * S] <= r.t)
+        r.k++;
+    const i0 = idx[r.k] * S, i1 = idx[Math.min(r.k + 1, idx.length - 1)] * S;
+    const t0 = b[i0], t1 = b[i1], a = t1 > t0 ? clamp((r.t - t0) / (t1 - t0), 0, 1) : 0;
+    ball.pos.set(lerp(b[i0 + 1], b[i1 + 1], a), lerp(b[i0 + 2], b[i1 + 2], a), lerp(b[i0 + 3], b[i1 + 3], a));
+    _rq0.set(b[i0 + 4], b[i0 + 5], b[i0 + 6], b[i0 + 7]);
+    _rq1.set(b[i1 + 4], b[i1 + 5], b[i1 + 6], b[i1 + 7]);
+    ball.mesh.quaternion.copy(_rq0).slerp(_rq1, a);
+    ball.vel.set(lerp(b[i0 + 8], b[i1 + 8], a), lerp(b[i0 + 9], b[i1 + 9], a), lerp(b[i0 + 10], b[i1 + 10], a));
+    let k = 12;
+    for (const c of cars) {
+        c.pos.set(lerp(b[i0 + k], b[i1 + k], a), lerp(b[i0 + k + 1], b[i1 + k + 1], a), lerp(b[i0 + k + 2], b[i1 + k + 2], a));
+        _rq0.set(b[i0 + k + 3], b[i0 + k + 4], b[i0 + k + 5], b[i0 + k + 6]);
+        _rq1.set(b[i1 + k + 3], b[i1 + k + 4], b[i1 + k + 5], b[i1 + k + 6]);
+        c.q.copy(_rq0).slerp(_rq1, a);
+        c.vel.set(lerp(b[i0 + k + 7], b[i1 + k + 7], a), lerp(b[i0 + k + 8], b[i1 + k + 8], a), lerp(b[i0 + k + 9], b[i1 + k + 9], a));
+        c.boosting = b[i0 + k + 10] > .5;
+        k += 11;
+    }
+}
+function stepReplay(dt) {
+    const r = replay;
+    if (!r) {
+        afterGoal();
+        return;
+    }
+    if (r.hold > 0) {
+        r.hold -= dt;
+        if (r.hold <= 0)
+            afterGoal();
+        return;
+    }
+    const targetGoalZ = r.team === 0 ? HL : -HL;
+    if (Math.abs(ball.pos.z - targetGoalZ) < 65 && Math.abs(ball.pos.x) < GW / 2 + 22)
+        r.goalSlow = true;
+    r.slowBlend = lerp(r.slowBlend, r.goalSlow ? 1 : 0, Math.min(1, dt * 6));
+    r.t += dt * (1 - .65 * r.slowBlend);
+    if (r.t >= r.tEnd) {
+        r.t = r.tEnd;
+        replayApply();
+        burst(ball.pos, TEAM_COL[r.team], 360, 55, 1.6);
+        burst(ball.pos, 0xffffff, 100, 35, 1.1);
+        shock.position.set(ball.pos.x, ball.pos.y, Math.sign(ball.pos.z) * HL);
+        shock.material.color.set(TEAM_COL[r.team]);
+        shock.visible = true;
+        shockT = 1;
+        ball.active = false;
+        ball.mesh.visible = false;
+        for (const c of cars)
+            c.boosting = false;
+        r.hold = 1.2;
+        return;
+    }
+    replayApply();
+}
+function afterGoal() {
+    const final = replay && replay.final;
+    replay = null;
+    $('hud').classList.remove('replaying');
+    if (final) {
+        endMatch();
+        return;
+    }
+    if (!attract && matchOverAfterGoal) {
+        if (scoreArr[0] === scoreArr[1]) {
+            overtime = true;
+            $('clock').classList.add('ot');
+            resetKickoff();
+        }
+        else
+            endMatch();
+    }
+    else
+        resetKickoff();
+}
+function replayCam(dt) {
+    const r = replay, gs = r.team === 0 ? 1 : -1;
+    if (r.tEnd - r.t < 1.2 || r.hold > 0) {
+        camPosT.set(clamp(ball.pos.x * .4, -GW / 2 + 6, GW / 2 - 6), GH * .45, gs * (HL + GD - 2.5));
+        if (r.hold <= 0)
+            camLookT.copy(ball.pos);
+        if (!r.cut) {
+            r.cut = true;
+            camPos.copy(camPosT);
+            camLook.copy(camLookT);
+        }
+    }
+    else {
+        const sc = r.scorer >= 0 ? cars[r.scorer] : null;
+        if (sc && sc.pos.distanceTo(ball.pos) < 45) {
+            _a.set(sc.pos.x - ball.pos.x, 0, sc.pos.z - ball.pos.z);
+            if (_a.lengthSq() < 1)
+                _a.set(0, 0, -gs);
+            _a.normalize();
+            camPosT.copy(sc.pos).addScaledVector(_a, 15);
+            camPosT.y = sc.pos.y + 6;
+        }
+        else {
+            _a.set(-ball.vel.x, 0, -ball.vel.z);
+            if (_a.lengthSq() < 1)
+                _a.set(0, 0, -gs);
+            _a.normalize();
+            camPosT.copy(ball.pos).addScaledVector(_a, 22);
+            camPosT.y = ball.pos.y + 8;
+        }
+        camLookT.copy(ball.pos);
+        if (!r.snapped) {
+            r.snapped = true;
+            camPos.copy(camPosT);
+            camLook.copy(camLookT);
+        }
+    }
+    for (let k = 0; k < 2; k++) {
+        const dc = arenaD(camPosT.x, camPosT.y, camPosT.z);
+        if (dc < 2) {
+            arenaN(camPosT, _cn);
+            camPosT.addScaledVector(_cn, 2 - dc);
+        }
+    }
+    camPos.lerp(camPosT, 1 - Math.exp(-5 * dt));
+    camLook.lerp(camLookT, 1 - Math.exp(-8 * dt));
+    camera.fov = 68;
+    updateShadow(camLook.x, camLook.z, 110);
+}
+$('botsChoice').onclick = () => { if (confirmUsername()) showMatchOptions('bots'); };
+$('onlineChoice').onclick = () => { if (confirmUsername()) showMatchOptions('online'); };
+$('backToChoice').onclick = showChoices;
+$('playBtn').onclick = () => playType === 'online' ? searchRealPlayer() : startGame();
+$('againBtn').onclick = () => playType === 'online' ? searchRealPlayer() : startGame();
+$('restartBtn').onclick = startGame;
+$('menuBtn').onclick = () => toMenu(true);
+$('quitBtn').onclick = () => toMenu(true);
+$('resumeBtn').onclick = togglePause;
+function updateCoinUI() {
+    document.querySelectorAll('.coinVal').forEach(e => e.textContent = STORE.coins.toLocaleString());
+    const eq = SKIN_BY_ID[STORE.equipped];
+}
+const storeUI = (() => {
+    const cv = $('storeView');
+    let r2 = null, pscene, pcam, turntable, ring, viewCar = null, open = false, raf = 0, showTok = 0, thumbJob = null;
+    let sel = STORE.equipped, filter = 'all', from = 'choosePlay', kind = 'car';
+    const thumbs = {}, thumbQ = [];
+    const KIND = {
+        car: { list: SKINS, by: SKIN_BY_ID, owned: () => STORE.owned, get eq() { return STORE.equipped; }, set eq(v) { STORE.equipped = v; online.setSkin && online.setSkin(v); }, target: .7 },
+        ball: { list: BALLS, by: BALL_BY_ID, owned: () => STORE.ownedBalls, get eq() { return STORE.ball; }, set eq(v) { STORE.ball = v; }, target: 1.62 },
+    };
+    let yaw = .7, pitch = .32, dist = 10.5, vy = 0, vp = 0, drag = null, idleT = 0, lastT = 0, autoSpin = true, curKey = '';
+    const stopped = new Map();
+    const TARGET = new V3(0, .7, 0);
+    function disposeCar(o) {
+        if (!o)
+            return;
+        o.parent && o.parent.remove(o);
+        o.traverse(m => {
+            if (!m.isMesh)
+                return;
+            if (![tireGeo, rimGeo, spokeGeo, capGeo].includes(m.geometry))
+                m.geometry.dispose();
+            if (m.material !== tireM && m.material !== rimM && m.material !== ball.mesh.material)
+                m.material.dispose();
+        });
+    }
+    function makeCar(skin, k = kind) {
+        const holder = new THREE.Group();
+        if (k === 'ball') {
+            const m = new THREE.Mesh(new THREE.SphereGeometry(1.6, 64, 40), ballMaterial(skin));
+            m.position.y = 1.62;
+            m.castShadow = true;
+            holder.add(m);
+            return holder;
+        }
+        const m = buildCarMesh(0, null, true, skin.team ? null : skin, holder);
+        m.g.position.y = CAR_Y + .02;
+        for (const w of m.wheels)
+            if (w.front)
+                w.pivot.rotation.y = -.32;
+        return holder;
+    }
+    function init() {
+        r2 = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true, powerPreference: 'high-performance' });
+        r2.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+        r2.outputColorSpace = THREE.SRGBColorSpace;
+        r2.toneMapping = THREE.ACESFilmicToneMapping;
+        r2.toneMappingExposure = .85;
+        r2.shadowMap.enabled = true;
+        r2.shadowMap.type = THREE.PCFSoftShadowMap;
+        pscene = new THREE.Scene();
+        const env = new THREE.Scene();
+        env.add(new THREE.Mesh(new THREE.SphereGeometry(50, 32, 16), new THREE.ShaderMaterial({
+            side: THREE.BackSide,
+            vertexShader: 'varying vec3 vD; void main(){ vD = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+            fragmentShader: 'varying vec3 vD; void main(){ vec3 d = normalize(vD); float h = d.y * .5 + .5; vec3 c = mix(vec3(.02,.025,.04), vec3(.28,.33,.45), pow(h, 1.6)); gl_FragColor = vec4(c, 1.0); }',
+        })));
+        const box = (w, h, x, y, z, k) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: new THREE.Color(k, k, k), side: THREE.DoubleSide })); m.position.set(x, y, z); m.lookAt(0, 0, 0); env.add(m); };
+        box(30, 8, 0, 40, 0, 9);
+        box(4, 30, 30, 18, -26, 7);
+        box(10, 24, 40, 10, 10, 3);
+        box(10, 24, -40, 8, -15, 2.2);
+        box(36, 3, 0, 6, -44, 3.5);
+        box(36, 3, 0, 6, 44, 2.5);
+        const pm = new THREE.PMREMGenerator(r2);
+        pscene.environment = pm.fromScene(env, .02).texture;
+        pm.dispose();
+        pscene.add(new THREE.HemisphereLight(0xcfdcff, 0x1a1d26, .5));
+        const key = new THREE.DirectionalLight(0xffffff, 2.4);
+        key.position.set(6, 12, 5);
+        key.castShadow = true;
+        key.shadow.mapSize.set(1024, 1024);
+        Object.assign(key.shadow.camera, { left: -5, right: 5, top: 5, bottom: -5, near: 1, far: 30 });
+        key.shadow.bias = -.0005;
+        key.shadow.normalBias = .02;
+        pscene.add(key);
+        const rim = new THREE.DirectionalLight(0x8fb6ff, 1.4);
+        rim.position.set(-7, 4, -8);
+        pscene.add(rim);
+        turntable = new THREE.Group();
+        pscene.add(turntable);
+        const disc = new THREE.Mesh(new THREE.CylinderGeometry(4.3, 4.5, .26, 72), new THREE.MeshStandardMaterial({ color: 0x151a26, metalness: .7, roughness: .35 }));
+        disc.position.y = -.13;
+        disc.receiveShadow = true;
+        turntable.add(disc);
+        ring = new THREE.Mesh(new THREE.TorusGeometry(4.38, .05, 8, 120), new THREE.MeshBasicMaterial({ color: 0x4b97ff, toneMapped: false }));
+        ring.rotation.x = Math.PI / 2;
+        ring.position.y = .02;
+        turntable.add(ring);
+        const glow = new THREE.Mesh(new THREE.RingGeometry(4.5, 6.2, 72), new THREE.MeshBasicMaterial({ color: 0x4b97ff, transparent: true, opacity: .12, depthWrite: false, toneMapped: false }));
+        glow.rotation.x = -Math.PI / 2;
+        glow.position.y = -.25;
+        pscene.add(glow);
+        pcam = new THREE.PerspectiveCamera(30, 1.6, .1, 200);
+        cv.addEventListener('pointerdown', e => { drag = { x: e.clientX, y: e.clientY }; vy = vp = 0; autoSpin = false; if (curKey) stopped.set(curKey, yaw); cv.setPointerCapture(e.pointerId); cv.classList.add('grab'); });
+        cv.addEventListener('pointermove', e => {
+            if (!drag)
+                return;
+            const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+            drag.x = e.clientX;
+            drag.y = e.clientY;
+            yaw += dx * .011;
+            pitch = clamp(pitch + dy * .006, -.05, 1.25);
+            vy = dx * .011;
+            vp = dy * .006;
+            idleT = 0;
+        });
+        const up = e => { drag = null; cv.classList.remove('grab'); };
+        cv.addEventListener('pointerup', up);
+        cv.addEventListener('pointercancel', up);
+        cv.addEventListener('wheel', e => { e.preventDefault(); dist = clamp(dist * (1 + Math.sign(e.deltaY) * .08), 6.5, 17); idleT = 0; }, { passive: false });
+        cv.addEventListener('dblclick', () => { yaw = .7; pitch = .32; dist = 10.5; vy = vp = 0; });
+        for (const s of SKINS)
+            thumbQ.push(['car', s.id]);
+        for (const b of BALLS)
+            thumbQ.push(['ball', b.id]);
+    }
+    function size() {
+        const w = cv.clientWidth, h = cv.clientHeight;
+        if (!w || !h)
+            return;
+        const pw = Math.round(w * r2.getPixelRatio()), ph = Math.round(h * r2.getPixelRatio());
+        if (cv.width !== pw || cv.height !== ph)
+            r2.setSize(w, h, false);
+        pcam.aspect = w / h;
+        pcam.updateProjectionMatrix();
+    }
+    function placeCam(y, p, d) {
+        pcam.position.set(Math.sin(y) * Math.cos(p) * d, TARGET.y + Math.sin(p) * d, Math.cos(y) * Math.cos(p) * d);
+        pcam.lookAt(TARGET);
+    }
+    function startThumbJob() {
+        if (thumbJob || !thumbQ.length)
+            return;
+        const [k, id] = thumbQ.shift();
+        const holder = makeCar(KIND[k].by[id], k), job = { k, id, holder, ready: false };
+        thumbJob = job;
+        r2.compileAsync(holder, pcam, pscene).then(() => { job.ready = true; }, () => { job.ready = true; });
+    }
+    function renderThumb() {
+        const { k, id, holder } = thumbJob;
+        thumbJob = null;
+        if (viewCar)
+            viewCar.visible = false;
+        turntable.add(holder);
+        const tt = turntable.rotation.y, ty = TARGET.y;
+        turntable.rotation.y = 0;
+        TARGET.y = KIND[k].target;
+        placeCam(.85, k === 'ball' ? .22 : .3, k === 'ball' ? 7.6 : 9.2);
+        r2.render(pscene, pcam);
+        const c = document.createElement('canvas');
+        c.width = 240;
+        c.height = 150;
+        const W = cv.width, H = cv.height, a = 240 / 150;
+        let sw = W, sh = W / a;
+        if (sh > H) {
+            sh = H;
+            sw = H * a;
+        }
+        c.getContext('2d').drawImage(cv, (W - sw) / 2, (H - sh) / 2, sw, sh, 0, 0, 240, 150);
+        thumbs[k + ':' + id] = c.toDataURL('image/png');
+        disposeCar(holder);
+        turntable.rotation.y = tt;
+        TARGET.y = ty;
+        if (viewCar)
+            viewCar.visible = true;
+        const img = k === kind && document.querySelector(`.skinCard[data-id="${id}"] img`);
+        if (img) {
+            img.src = thumbs[k + ':' + id];
+            img.classList.add('ready');
+        }
+    }
+    function showSkin(id) {
+        sel = id;
+        const k = kind, s = KIND[k].by[id], tok = ++showTok;
+        ring.material.color.set(s.team ? 0x4b97ff : (s.accent ? s.accent[0] : 0xffffff));
+        $('svName').textContent = s.name;
+        $('svRarity').textContent = RARITY[s.rarity].name;
+        $('svRarity').style.color = RARITY[s.rarity].css;
+        updateCards();
+        const holder = makeCar(s, k);
+        r2.compileAsync(holder, pcam, pscene).catch(() => { }).then(() => {
+            if (tok !== showTok || !open) {
+                disposeCar(holder);
+                return;
+            }
+            disposeCar(viewCar);
+            viewCar = holder;
+            turntable.add(holder);
+            TARGET.y = KIND[k].target;
+            curKey = k + ':' + id;
+            if (stopped.has(curKey)) {
+                autoSpin = false;
+                yaw = stopped.get(curKey);
+            }
+            else
+                autoSpin = true;
+            vy = 0;
+        });
+    }
+    function loop(now) {
+        if (!open)
+            return;
+        raf = requestAnimationFrame(loop);
+        const dt = Math.min(.05, (now - (lastT || now)) / 1000);
+        lastT = now;
+        SKIN_TIME.value = now / 1000;
+        size();
+        if (!drag) {
+            if (thumbJob && thumbJob.ready)
+                renderThumb();
+            else
+                startThumbJob();
+            idleT += dt;
+            vy *= Math.exp(-9 * dt);
+            vp *= Math.exp(-9 * dt);
+            if (Math.abs(vy) < .0006)
+                vy = 0;
+            if (Math.abs(vp) < .0006)
+                vp = 0;
+            yaw += vy;
+            pitch = clamp(pitch + vp, -.05, 1.25);
+            if (autoSpin)
+                yaw += dt * .35;
+        }
+        if (!autoSpin && curKey)
+            stopped.set(curKey, yaw);
+        turntable.rotation.y = yaw;
+        placeCam(0, pitch, dist);
+        r2.render(pscene, pcam);
+    }
+    function cardTag(s, owned, eq) {
+        return eq ? '<b class="tagEq">EQUIPPED</b>' : owned ? '<b class="tagOwn">OWNED</b>' : `<b class="tagPrice"><span class="coinIco"></span>${s.price.toLocaleString()}</b>`;
+    }
+    function buildGrid() {
+        const K = KIND[kind], grid = $('skinGrid'), frag = document.createDocumentFragment();
+        for (const s of K.list) {
+            const owned = K.owned().includes(s.id), th = thumbs[kind + ':' + s.id];
+            if (filter === 'owned' && !owned)
+                continue;
+            if (filter !== 'all' && filter !== 'owned' && +filter !== s.rarity)
+                continue;
+            const d = document.createElement('div');
+            d.className = 'skinCard';
+            d.dataset.id = s.id;
+            d.style.setProperty('--rc', RARITY[s.rarity].css);
+            d.innerHTML = `<img alt="" ${th ? `class="ready" src="${th}"` : ''}><div class="scName">${s.name}</div><div class="scFoot"><i>${RARITY[s.rarity].name}</i><span class="scTag"></span></div>`;
+            d.onclick = () => { if (sel !== s.id) showSkin(s.id); };
+            frag.appendChild(d);
+        }
+        grid.replaceChildren(frag);
+        updateCards();
+    }
+    function updateCards() {
+        updateCoinUI();
+        const K = KIND[kind];
+        for (const d of $('skinGrid').children) {
+            const s = K.by[d.dataset.id], owned = K.owned().includes(s.id), eq = K.eq === s.id;
+            d.classList.toggle('sel', sel === s.id);
+            d.classList.toggle('eq', eq);
+            const tag = d.querySelector('.scTag'), html = cardTag(s, owned, eq);
+            if (tag.innerHTML !== html)
+                tag.innerHTML = html;
+        }
+        const s = K.by[sel], owned = K.owned().includes(sel), btn = $('svAction');
+        let cls = 'big svAct', html, dis = false;
+        if (K.eq === sel) {
+            html = 'EQUIPPED';
+            dis = true;
+            cls += ' done';
+        }
+        else if (owned)
+            html = 'EQUIP';
+        else {
+            html = `BUY <span class="coinIco"></span>${s.price.toLocaleString()}`;
+            if (STORE.coins >= s.price)
+                cls += ' buy';
+            else {
+                dis = true;
+                cls += ' locked';
+            }
+        }
+        if (btn.innerHTML !== html)
+            btn.innerHTML = html;
+        btn.className = cls;
+        btn.disabled = dis;
+    }
+    function refresh() {
+        updateCards();
+    }
+    $('svAction').onclick = () => {
+        const K = KIND[kind], s = K.by[sel];
+        if (!K.owned().includes(sel)) {
+            if (STORE.coins < s.price)
+                return;
+            STORE.coins -= s.price;
+            K.owned().push(sel);
+            sfx.init && sfx.init();
+        }
+        K.eq = sel;
+        saveStore();
+        if (kind === 'ball' && attract)
+            applyBallSkin();
+        if (filter === 'owned')
+            buildGrid();
+        else
+            updateCards();
+    };
+    document.querySelectorAll('#kindTabs button').forEach(b => b.onclick = () => {
+        if (b.dataset.k === kind)
+            return;
+        document.querySelectorAll('#kindTabs button').forEach(x => x.classList.remove('on'));
+        b.classList.add('on');
+        kind = b.dataset.k;
+        dist = kind === 'ball' ? 13 : 10.5;
+        pitch = .32;
+        vy = vp = 0;
+        sel = KIND[kind].eq;
+        buildGrid();
+        $('skinGrid').scrollTop = 0;
+        showSkin(sel);
+    });
+    document.querySelectorAll('#storeTabs button').forEach(b => b.onclick = () => {
+        if (b.dataset.f === filter)
+            return;
+        document.querySelectorAll('#storeTabs button').forEach(x => x.classList.remove('on'));
+        b.classList.add('on');
+        filter = b.dataset.f;
+        buildGrid();
+        $('skinGrid').scrollTop = 0;
+    });
+    return {
+        get open() { return open; },
+        show() {
+            if (!r2)
+                init();
+            open = true;
+            from = $('choosePlay').classList.contains('hidden') ? 'menu' : 'choosePlay';
+            $(from).classList.add('hidden');
+            $('store').classList.remove('hidden');
+            sel = KIND[kind].eq;
+            buildGrid();
+            showSkin(sel);
+            lastT = 0;
+            idleT = 0;
+            autoSpin = true;
+            stopped.clear();
+            curKey = '';
+            raf = requestAnimationFrame(loop);
+        },
+        hide() {
+            open = false;
+            cancelAnimationFrame(raf);
+            $('store').classList.add('hidden');
+            $(from).classList.remove('hidden');
+            updateCoinUI();
+        },
+    };
+})();
+$('storeBtn').onclick = () => storeUI.show();
+$('storeClose').onclick = () => storeUI.hide();
+online.setSkin && online.setSkin(STORE.equipped);
+updateCoinUI();
+$('cancelSearch').onclick = () => { online.cancel(); toMenu(true); };
+let acc = 0, last = performance.now(), clockTime = 0;
+const camPos = new V3(0, 50, -150), camLook = new V3(), camLookT = new V3(), camPosT = new V3();
+let orbitA = 0, debugCam = null, camDirX = 0, camDirZ = 1, camSnap = true, camFlipBlend = 0;
+const _cn = new V3();
+function update(dt) {
+    clockTime += dt;
+    if (online.active && !online.isHost) {
+        if (player) {
+            readPlayer(player);
+            if (paused) clearInput(player.input);
+            onlineInputTimer += dt;
+            if (onlineInputTimer >= 1 / 30) {
+                online.sendInput(serializeInput(player.input));
+                onlineInputTimer = 0;
+            }
+            if (!paused && state === 'play') {
+                acc = Math.min(acc + dt, .08);
+                while (acc >= STEP) {
+                    acc -= STEP;
+                    updateCar(player, player.input, STEP);
+                    confineCar(player);
+                }
+            } else acc = 0;
+        }
+        if (centerTimer > 0) centerTimer -= dt;
+        if (subTimer > 0) subTimer -= dt;
+        return;
+    }
+    if (state === 'countdown') {
+        countT -= dt;
+        const n = Math.ceil(countT);
+        if (!attract && n !== lastCount && n > 0) {
+            showCenter(String(n), .9);
+            sfx.beep(false);
+        }
+        lastCount = n;
+        if (countT <= 0) {
+            state = 'play';
+            kickoffT = 0;
+            if (!attract) {
+                showCenter('GO!', .7, '#7dff9a');
+                sfx.beep(true);
+            }
+        }
+    }
+    else if (state === 'play') {
+        kickoffT += dt;
+        if (!attract) {
+            if (!overtime) {
+                timeLeft = Math.max(0, timeLeft - dt);
+                if (timeLeft === 0) {
+                    if (scoreArr[0] === scoreArr[1]) {
+                        overtime = true;
+                        otTime = 0;
+                        $('clock').classList.add('ot');
+                        $('clock').classList.remove('last-minute');
+                        showCenter('OVERTIME', 2, '#ffd54a');
+                    } else if (ball.pos.y <= BR + .4) {
+                        finishMatch();
+                    }
+                }
+            }
+            else
+                otTime += dt;
+        }
+    }
+    else if (state === 'goal') {
+        goalT -= dt;
+        if (goalT <= 0) {
+            const final = !attract && matchOverAfterGoal && scoreArr[0] !== scoreArr[1];
+            if (attract || !startReplay(final))
+                afterGoal();
+        }
+    }
+    else if (state === 'replay')
+        stepReplay(dt);
+    exciteB = Math.max(0, exciteB - dt * .1);
+    exciteR = Math.max(0, exciteR - dt * .1);
+    tension = state === 'play' && Math.abs(ball.pos.z) > HL - 45 && Math.abs(ball.pos.x) < GW ? .35 : 0;
+    if (state === 'ended')
+        return;
+    if (state === 'play' || state === 'goal') {
+        predictBall();
+        assignRoles();
+        for (const c of cars) {
+            if (online.active) {
+                if (c.netSeat === online.seat) {
+                    readPlayer(c);
+                    if (paused) clearInput(c.input);
+                } else {
+                    const remote = remoteInputs.get(c.netSeat);
+                    if (remote && Date.now() - remote.at < 1500) useRemoteInput(c.input, remote.controls);
+                    else clearInput(c.input);
+                }
+            } else if (c.human) readPlayer(c);
+            else botThink(c, dt);
+        }
+        const scale = state === 'goal' && goalT > (attract ? 1.5 : 2.0) ? .35 : 1;
+        acc += dt * scale;
+        while (acc >= STEP) {
+            acc -= STEP;
+            simTime += STEP;
+            for (const c of cars)
+                updateCar(c, c.input, STEP);
+            for (let it = 0; it < 3; it++) {
+                carCar();
+                for (const c of cars)
+                    confineCar(c);
+            }
+            if (ball.active) {
+                stepBall(STEP);
+                if (ball.active)
+                    for (const c of cars)
+                        carBall(c);
+            }
+        }
+        if (state === 'play' && simTime - lastRecT >= 1 / 60 - 1e-6) {
+            recFrame();
+            lastRecT = simTime;
+        }
+    }
+    else if (player)
+        readPlayer(player);
+}
+const _cf = new V3(), _rq = new Q4(), _rax = new V3();
+function render(dt) {
+    for (const c of cars) {
+        c.mesh.position.copy(c.pos);
+        c.mesh.quaternion.copy(c.q);
+        const vf = c.vel.dot(forwardOf(c, _cf));
+        c.wheelRot += vf * dt / .59;
+        for (const w of c.wheels) {
+            w.w.rotation.x = c.wheelRot;
+            if (w.front)
+                w.pivot.rotation.y = c.onGround ? c.input.steer * .42 : 0;
+        }
+        for (const f of c.flames) {
+            f.visible = c.boosting;
+            if (f.visible)
+                f.scale.set(1, rand(.85, 1.25), 1);
+        }
+        if (c.boosting) {
+            _a.set(0, -CAR_Y + .45, -2.75).applyQuaternion(c.q).add(c.pos);
+            forwardOf(c, _b);
+            const col = c.team ? [1, .25, .3] : [.3, .62, 1];
+            for (let i = 0; i < 3; i++)
+                spawnP(_a.x + rand(-.25, .25), _a.y + rand(-.25, .25), _a.z + rand(-.25, .25), -_b.x * 14 + c.vel.x * .9 + rand(-1.5, 1.5), -_b.y * 14 + c.vel.y * .9 + rand(-1, 1.5), -_b.z * 14 + c.vel.z * .9 + rand(-1.5, 1.5), col[0], col[1], col[2], .26);
+        }
+    }
+    ball.mesh.position.copy(ball.pos);
+    if (ball.active) {
+        const sp = Math.hypot(ball.vel.x, ball.vel.z);
+        if (state !== 'replay') {
+            if (ball.pos.y <= BR + .05 && sp > .1) {
+                _rax.set(ball.vel.z, 0, -ball.vel.x).divideScalar(sp);
+                ball.mesh.quaternion.premultiply(_rq.setFromAxisAngle(_rax, sp * dt / BR));
+            }
+            else {
+                const w = ball.spin.length();
+                if (w > 1e-3) {
+                    _rax.copy(ball.spin).divideScalar(w);
+                    ball.mesh.quaternion.premultiply(_rq.setFromAxisAngle(_rax, w * dt));
+                }
+            }
+        }
+    }
+    blob.visible = ball.active;
+    blob.position.set(ball.pos.x, .05, ball.pos.z);
+    const bs = 1 + ball.pos.y / 30;
+    blob.scale.set(bs, bs, 1);
+    blob.material.opacity = clamp(1 - ball.pos.y / 45, .15, 1);
+    if (shockT > 0) {
+        shockT -= dt * 1.1;
+        const s = (1 - shockT) * 70 + 3;
+        shock.scale.set(s, s, s);
+        shock.material.opacity = Math.max(0, shockT) * .9;
+        if (shockT <= 0)
+            shock.visible = false;
+    }
+    updateParts(dt);
+    for (const t of ledTexes)
+        t.offset.x = (t.offset.x + dt * .02) % 1;
+    crowdU.uTime.value = clockTime;
+    crowdU.uExciteB.value = exciteB;
+    crowdU.uExciteR.value = exciteR;
+    for (const L of crowdLOD) {
+        const near = camera.position.distanceTo(L.c) - L.r < 35;
+        L.hi.visible = near;
+        L.lo.visible = !near;
+    }
+    drawJumbo();
+    if (attract || !player) {
+        orbitA += dt * .06;
+        camPosT.set(Math.sin(orbitA) * 100, 46, Math.cos(orbitA) * 135);
+        camLookT.set(ball.pos.x * .5, 6, ball.pos.z * .5);
+        if (camSnap) {
+            camPos.copy(camPosT);
+            camLook.copy(camLookT);
+        }
+        else {
+            camPos.lerp(camPosT, 1 - Math.exp(-2 * dt));
+            camLook.lerp(camLookT, 1 - Math.exp(-3 * dt));
+        }
+        camera.fov = 62;
+        updateShadow(0, 0, 200);
+    }
+    else if (state === 'replay' && replay) {
+        replayCam(dt);
+    }
+    else {
+        const c = player;
+        if (c.onGround)
+            _a.copy(c.fwd);
+        else
+            forwardOf(c, _a);
+        const facingUp = _b.set(0, 1, 0).applyQuaternion(c.q).y;
+        const canTrackHeading = c.onGround || (!c.flipping && facingUp > .45 && Math.abs(_a.y) < .65);
+        _a.y = 0;
+        if (canTrackHeading && _a.lengthSq() > .15) {
+            _a.normalize();
+            const current = Math.atan2(camDirX, camDirZ);
+            const desired = Math.atan2(_a.x, _a.z);
+            const angle = Math.atan2(Math.sin(desired - current), Math.cos(desired - current));
+            const turn = camSnap ? 1 : 1 - Math.exp(-7 * dt);
+            const heading = current + angle * turn;
+            camDirX = Math.sin(heading);
+            camDirZ = Math.cos(heading);
+        }
+        camFlipBlend += ((c.flipping ? 1 : 0) - camFlipBlend) * (1 - Math.exp(-7 * dt));
+        const distance = 13 + 5 * camFlipBlend;
+        const height = 4.8 + 2 * camFlipBlend;
+        const lookAhead = 6 - 2 * camFlipBlend;
+        camPosT.set(c.pos.x - camDirX * distance, c.pos.y + height, c.pos.z - camDirZ * distance);
+        camLookT.set(c.pos.x + camDirX * lookAhead, c.pos.y + 1.6 + .7 * camFlipBlend, c.pos.z + camDirZ * lookAhead);
+        for (let k = 0; k < 2; k++) {
+            const dc = arenaD(camPosT.x, camPosT.y, camPosT.z);
+            if (dc < 2) {
+                arenaN(camPosT, _cn);
+                camPosT.addScaledVector(_cn, 2 - dc);
+            }
+        }
+        if (camSnap) {
+            camPos.copy(camPosT);
+            camLook.copy(camLookT);
+            camera.fov = 76;
+        }
+        else {
+            camPos.lerp(camPosT, 1 - Math.exp(-11 * dt));
+            camLook.lerp(camLookT, 1 - Math.exp(-14 * dt));
+            camera.fov = lerp(camera.fov, Math.max(c.supersonic ? 86 : c.boosting ? 81 : 76, 76 + 3 * camFlipBlend), 1 - Math.exp(-4 * dt));
+        }
+        updateShadow((c.pos.x + camLook.x) / 2, (c.pos.z + camLook.z) / 2, 110);
+    }
+    if (state !== 'replay' || !replay)
+        camSnap = false;
+    if (debugCam) {
+        camPos.copy(debugCam.pos);
+        camLook.copy(debugCam.look);
+        camera.fov = debugCam.fov || 70;
+        updateShadow(debugCam.look.x, debugCam.look.z, 110);
+    }
+    camera.updateProjectionMatrix();
+    camera.position.copy(camPos);
+    if (shake > 0) {
+        shake = Math.max(0, shake - dt);
+        const s = shake * (player && player.flipping ? .12 : 1.2);
+        camera.position.x += rand(-s, s);
+        camera.position.y += rand(-s, s);
+        camera.position.z += rand(-s, s);
+    }
+    camera.lookAt(camLook);
+    if (!attract && player) {
+        $('clock').textContent = overtime ? '+' + fmt(otTime) : fmt(timeLeft);
+        $('clock').classList.toggle('last-minute', !overtime && timeLeft <= 60);
+        drawBoost(player.boost, player.boostIdle, player.boosting);
+        const on = state !== 'ended' && !paused;
+        sfx.engine(player.vel.length(), player.boosting, on && state !== 'replay');
+    }
+    if (centerTimer > 0) {
+        centerTimer -= dt;
+        if (centerTimer <= 0)
+            $('center').classList.remove('show');
+    }
+    if (subTimer > 0) {
+        subTimer -= dt;
+        if (subTimer <= 0)
+            $('sub').classList.remove('show');
+    }
+    renderer.render(scene, camera);
+}
+const bctx = $('boostC').getContext('2d');
+let lastBoostKey = '';
+function drawBoost(b, idle, boosting) {
+    const v = Math.round(b), label = boosting || v >= 100 ? 'BOOST' : idle < REGEN_DELAY ? `RECHARGE ${Math.ceil(REGEN_DELAY - idle)}s` : 'RECHARGING';
+    const key = v + label;
+    if (key === lastBoostKey)
+        return;
+    lastBoostKey = key;
+    const g = bctx, W = 340, cx = W / 2, r = 130;
+    g.clearRect(0, 0, W, W);
+    g.beginPath();
+    g.arc(cx, cx, r + 22, 0, Math.PI * 2);
+    g.fillStyle = 'rgba(8,12,26,.72)';
+    g.fill();
+    const a0 = Math.PI * .75, a1 = a0 + Math.PI * 1.5;
+    g.lineCap = 'round';
+    g.lineWidth = 26;
+    g.beginPath();
+    g.arc(cx, cx, r, a0, a1);
+    g.strokeStyle = 'rgba(255,255,255,.12)';
+    g.stroke();
+    if (v > 0) {
+        const gr = g.createLinearGradient(0, W, W, 0);
+        gr.addColorStop(0, '#9fdcff');
+        gr.addColorStop(1, '#2f6bff');
+        g.beginPath();
+        g.arc(cx, cx, r, a0, a0 + (a1 - a0) * v / 100);
+        g.strokeStyle = gr;
+        g.stroke();
+    }
+    g.fillStyle = '#fff';
+    g.font = 'italic 900 96px Segoe UI, Arial';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText(v, cx, cx - 6);
+    g.font = `800 ${label.length > 6 ? 22 : 26}px Segoe UI, Arial`;
+    g.fillStyle = label === 'BOOST' ? '#9cc8ff' : '#ffffff';
+    g.fillText(label, cx, cx + 66);
+}
+let perfT = 0, perfN = 0, perfSum = 0, prChangedAt = 0, prNext = 0, perfHoldUntil = 0, prChanges = 0;
+function perfHold(ms) { perfT = perfN = perfSum = 0; perfHoldUntil = performance.now() + ms; }
+function governor(rawDt, now) {
+    if (now < perfHoldUntil)
+        return;
+    perfT += rawDt;
+    perfN++;
+    perfSum += rawDt;
+    if (perfT < 2)
+        return;
+    const avg = perfSum / perfN;
+    perfT = perfN = perfSum = 0;
+    if (avg > 1 / 48 && prCur > .8) {
+        prNext = Math.max(.8, +(prCur - .15).toFixed(2));
+        prChangedAt = now;
+    }
+    else if (avg < 1 / 58 && prCur < PR_MAX && now - prChangedAt > 6000) {
+        prNext = Math.min(PR_MAX, +(prCur + .1).toFixed(2));
+        prChangedAt = now;
+    }
+}
+document.addEventListener('visibilitychange', () => { perfHold(1500); last = performance.now(); sfx.pause(document.hidden || paused); });
+function frame(now) {
+    requestAnimationFrame(frame);
+    if (online.active && !online.isHost && online.lastPacket && Date.now() - online.lastPacket > 11000) {
+        online.lost('Player disconnected. Match ended.', 'disconnect');
+    }
+    const raw = (now - last) / 1000, dt = Math.min(.1, raw);
+    last = now;
+    SKIN_TIME.value = now / 1000;
+    if (storeUI.open && !online.active)
+        return;
+    if (!paused || online.active)
+        update(dt);
+    if (prNext) {
+        prCur = prNext;
+        prNext = 0;
+        prChanges++;
+        renderer.setPixelRatio(prCur);
+    }
+    if (online.active && online.isHost) {
+        onlineSnapshotTimer += dt;
+        if (onlineSnapshotTimer >= .05) {
+            online.sendSnapshot(onlineSnapshot());
+            onlineSnapshotTimer = 0;
+        }
+    }
+    render(paused && !online.active ? 0 : dt);
+    governor(Math.min(raw, .25), now);
+}
+setupMatch(true);
+renderer.compile(scene, camera);
+render(0.016);
+$('loading').remove();
+perfHold(4000);
+requestAnimationFrame(frame);
+window.__tcReady = true;
+dispatchEvent(new Event('tc-ready'));
+window.NITRO = {
+    DIFF, goalLog, ball, settings, obbContact, carCar, arenaD, scene, camera, renderer, THREE,
+    get state() { return state; }, get cars() { return cars; }, get score() { return scoreArr; },
+    set freezeBots(v) { freezeBots = v; },
+    set debugCam(v) { debugCam = v ? { pos: new V3(...v.pos), look: new V3(...v.look), fov: v.fov } : null; },
+    get sfx() { return sfx; }, get camSnap() { return camSnap; }, get perf() { return { prCur, prNext, prChanges, holdLeft: Math.max(0, perfHoldUntil - performance.now()) }; },
+    forcePR(v) { prNext = v; },
+    get dbg() { return { timeLeft, overtime, paused, attract, exciteB, exciteR, tension, prCur, crowdCount, active: ball.active, replaying: !!replay, recCount: rec ? rec.count : 0 }; },
+    info: () => ({ calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, crowd: crowdCount }),
+    step: (s) => { for (let i = 0; i < s * 60; i++)
+        update(1 / 60); },
+};
+
+
+  } catch (err) {
+    console.error('TurboClash startup failed:', err);
+    const box = document.getElementById('loading');
+    if (box) {
+      box.style.fontStyle = 'normal';
+      box.style.letterSpacing = 'normal';
+      box.style.padding = '24px';
+      box.style.textAlign = 'center';
+      box.innerHTML = '<div style="font:800 23px system-ui,Arial;color:#fff">TURBOCLASH</div><div style="font:600 19px system-ui,Arial;color:#ff8b8b">Game could not start</div><div style="font:400 14px system-ui,Arial;color:#d8e4ff;max-width:520px;line-height:1.5">Check your internet connection and make sure your browser supports WebGL. If you downloaded a ZIP, extract it first. You can also open the game from your GitHub Pages site.</div>';
+    }
+  }
+})();
