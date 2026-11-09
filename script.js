@@ -39,7 +39,7 @@ const STORE = (() => {
     let d = null;
     try { d = JSON.parse(localStorage.getItem(STORE_KEY)); } catch (_) { }
     if (!d || typeof d.coins !== 'number' || !Array.isArray(d.owned))
-        d = { coins: 1500, owned: ['stock'], equipped: 'stock' };
+        d = { coins: 0, owned: ['stock'], equipped: 'stock' };
     if (!d.owned.includes('stock'))
         d.owned.push('stock');
     if (!Array.isArray(d.ownedBalls))
@@ -152,13 +152,17 @@ const sky = new THREE.Mesh(new THREE.SphereGeometry(4000, 48, 24), new THREE.Sha
 sky.material.toneMapped = false;
 sky.frustumCulled = false;
 const pmrem = new THREE.PMREMGenerator(renderer);
-{
+let envBuilt = false;
+function buildEnv() {
+    if (envBuilt)
+        return;
+    envBuilt = true;
     const envScene = new THREE.Scene();
     envScene.add(sky);
     scene.environment = pmrem.fromScene(envScene).texture;
     sky.material.uniforms.uLow.value = 0;
+    scene.add(sky);
 }
-scene.add(sky);
 scene.add(new THREE.HemisphereLight(0xd2e2ff, 0x4d6e38, 0.38));
 const sun = new THREE.DirectionalLight(0xfff2de, 3.0);
 sun.castShadow = true;
@@ -1376,6 +1380,31 @@ function skinPaint(skin, team) {
     }
     return m;
 }
+function mergeParts(parts) {
+    const geos = parts.map(m => {
+        m.updateMatrix();
+        const gg = m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone();
+        gg.applyMatrix4(m.matrix);
+        m.parent.remove(m);
+        m.geometry.dispose();
+        return gg;
+    });
+    let n = 0;
+    for (const gg of geos)
+        n += gg.attributes.position.count;
+    const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3);
+    let o = 0;
+    for (const gg of geos) {
+        pos.set(gg.attributes.position.array, o * 3);
+        nor.set(gg.attributes.normal.array, o * 3);
+        o += gg.attributes.position.count;
+        gg.dispose();
+    }
+    const out = new THREE.BufferGeometry();
+    out.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    out.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+    return out;
+}
 function buildCarMesh(team, name, human, skin = null, parent = scene) {
     const g = new THREE.Group(), col = TEAM_COL[team], yb = -CAR_Y;
     const paint = skinPaint(skin, team);
@@ -1401,13 +1430,15 @@ function buildCarMesh(team, name, human, skin = null, parent = scene) {
     {
         const ny = yb + .45, steel = new THREE.MeshStandardMaterial({ color: 0x3a3f48, metalness: .85, roughness: .32 });
         const chrome = new THREE.MeshStandardMaterial({ color: 0xdfe5ee, metalness: 1, roughness: .12 });
-        mk(new THREE.CylinderGeometry(.31, .35, .36, 24), steel, 0, ny, -2.47).rotation.x = Math.PI / 2;
+        const housing = mk(new THREE.CylinderGeometry(.31, .35, .36, 24), steel, 0, ny, -2.47);
+        housing.rotation.x = Math.PI / 2;
+        const fins = [];
         for (let k = 0; k < 8; k++) {
             const a = k / 8 * Math.PI * 2, fin = mk(new THREE.BoxGeometry(.035, .1, .3), carbon, Math.cos(a) * .37, ny + Math.sin(a) * .37, -2.45);
             fin.rotation.z = a - Math.PI / 2;
+            fins.push(fin);
         }
-        mk(new THREE.TorusGeometry(.33, .025, 8, 28), chrome, 0, ny, -2.31);
-        mk(new THREE.TorusGeometry(.26, .05, 12, 32), chrome, 0, ny, -2.66);
+        const rings = [mk(new THREE.TorusGeometry(.33, .025, 8, 28), chrome, 0, ny, -2.31), mk(new THREE.TorusGeometry(.26, .05, 12, 32), chrome, 0, ny, -2.66)];
         const throat = mk(new THREE.CylinderGeometry(.24, .15, .24, 24, 1, true), new THREE.MeshStandardMaterial({ color: 0x0b0c0f, metalness: .6, roughness: .5, side: THREE.DoubleSide }), 0, ny, -2.6);
         throat.rotation.x = -Math.PI / 2;
         const core = mk(new THREE.CircleGeometry(.16, 24), new THREE.MeshBasicMaterial({ color: new THREE.Color(col).multiplyScalar(.7), toneMapped: false }), 0, ny, -2.665);
@@ -1416,7 +1447,10 @@ function buildCarMesh(team, name, human, skin = null, parent = scene) {
         const ringG = mk(new THREE.RingGeometry(.07, .1, 24), new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false, transparent: true, opacity: .55 }), 0, ny, -2.67);
         ringG.rotation.y = Math.PI;
         ringG.castShadow = false;
-        mk(new THREE.BoxGeometry(.14, .2, .26), steel, 0, ny + .3, -2.4);
+        const bracket = mk(new THREE.BoxGeometry(.14, .2, .26), steel, 0, ny + .3, -2.4);
+        mk(mergeParts([housing, bracket]), steel);
+        mk(mergeParts(fins), carbon);
+        mk(mergeParts(rings), chrome);
     }
     const flameO = new THREE.Mesh(new THREE.ConeGeometry(.42, 2.6, 16, 1, true), new THREE.MeshBasicMaterial({ color: team ? 0xff2d3d : 0x2f8bff, transparent: true, opacity: .75, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
     const flameI = new THREE.Mesh(new THREE.ConeGeometry(.22, 1.5, 12, 1, true), new THREE.MeshBasicMaterial({ color: team ? 0xffd2d8 : 0xd2efff, transparent: true, opacity: .95, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
@@ -1886,7 +1920,7 @@ function stepBall(dt) {
         v.multiplyScalar(BALL_MAX / sp);
     if (Math.abs(p.z) < HL - BR)
         ignoredOwnGoal = false;
-    if (Math.abs(p.z) > HL + BR * .95 && state === 'play' && !ignoredOwnGoal) {
+    if (Math.abs(p.z) > HL + BR * .95 && state === 'play' && !ignoredOwnGoal && !netGuest()) {
         const scoringTeam = p.z > 0 ? 0 : 1;
         if (lastToucher && lastToucher.team !== scoringTeam)
             ignoredOwnGoal = true;
@@ -1954,7 +1988,7 @@ function carBall(c) {
         lastTouch[c.team] = c;
         lastToucher = c;
         touchInfo = { name: c.name, team: c.team, t: +simTime.toFixed(2) };
-        if (state === 'play') {
+        if (state === 'play' && !netGuest()) {
             const ad = c.team === 0 ? 1 : -1, before = goalBound(ball.pos, _bvPrev), after = goalBound(ball.pos, ball.vel);
             if (before === -ad && after !== -ad) {
                 c.stats.saves++;
@@ -2308,7 +2342,15 @@ function botThink(c, dt) {
     }
 }
 const keys = {};
-let mouseJump = false, padPrev = {};
+let mouseJump = false, padPrev = {}, ballCam = true, bcPitch = 0;
+function setBallCam(on) {
+    ballCam = on;
+    const t = $('camTag');
+    if (t) {
+        t.textContent = on ? 'BALL CAM' : 'CAR CAM';
+        t.classList.toggle('on', on);
+    }
+}
 addEventListener('keydown', e => {
     if (e.target && ['INPUT','TEXTAREA'].includes(e.target.tagName)) return;
     if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.code))
@@ -2316,6 +2358,10 @@ addEventListener('keydown', e => {
     keys[e.code] = true;
     if (e.repeat)
         return;
+    if (e.code === 'KeyC' && !storeUI.open) {
+        setBallCam(!ballCam);
+        return;
+    }
     if (e.code === 'Escape' && storeUI.open) {
         storeUI.hide();
         return;
@@ -2361,7 +2407,9 @@ function readPlayer(c) {
         inp.slide = inp.slide || b(2);
         if (b(9) && !padPrev.st)
             togglePause();
-        padPrev = { st: b(9) };
+        if (b(3) && !padPrev.y)
+            setBallCam(!ballCam);
+        padPrev = { st: b(9), y: b(3) };
     }
 }
 const sfx = {
@@ -2402,6 +2450,9 @@ function setupOnlineMatch() {
     applyBallSkin();
     clearCars();
     remoteInputs.clear();
+    netReset();
+    replay = null;
+    $('hud').classList.remove('replaying');
     for (const team of [0, 1]) {
         for (let i = 0; i < settings.mode; i++) {
             const seat = 2 * i + team;
@@ -2418,8 +2469,54 @@ function setupOnlineMatch() {
     $('clock').classList.remove('ot', 'last-minute');
     updateScoreHud(); resetKickoff();
 }
+const netHist = [], netSent = new Map();
+let netSeq = 0, netRtt = .12, netTouchAt = -9, netLastInput = '', netInputT = 0;
+const _ni = new V3(), _nv = new V3(), _nt = new V3(), _netErr = new V3(), _nbp = new V3(), _nbv = new V3();
+function netGuest() { return online.active && !online.isHost; }
+function netReset() {
+    netHist.length = 0;
+    netSent.clear();
+    netSeq = 0;
+    netRtt = .12;
+    netTouchAt = -9;
+    netLastInput = '';
+    netInputT = 0;
+    for (const o of [ball, ...cars])
+        if (o.nvo) o.nvo.set(0, 0, 0);
+}
+function netSetPos(o, p) {
+    if (!o.nvo) o.nvo = new V3();
+    _ni.copy(o.pos).sub(p);
+    o.nvo.add(_ni);
+    if (o.nvo.lengthSq() > 64) o.nvo.set(0, 0, 0);
+    o.pos.copy(p);
+}
+function netDecay(dt) {
+    const k = Math.exp(-14 * dt);
+    for (const o of [ball, ...cars])
+        if (o.nvo) {
+            o.nvo.multiplyScalar(k);
+            if (o.nvo.lengthSq() < 1e-6) o.nvo.set(0, 0, 0);
+        }
+}
+function netRecordSelf() {
+    netHist.push({ t: performance.now() / 1000, p: player.pos.clone(), v: player.vel.clone() });
+    if (netHist.length > 240)
+        netHist.shift();
+}
+function netHistAt(t) {
+    for (let i = netHist.length - 1; i > 0; i--) {
+        const h0 = netHist[i - 1], h1 = netHist[i];
+        if (h0.t <= t && t <= h1.t) {
+            const a = h1.t > h0.t ? (t - h0.t) / (h1.t - h0.t) : 0;
+            return { p: h0.p.clone().lerp(h1.p, a), v: h0.v.clone().lerp(h1.v, a) };
+        }
+    }
+    return null;
+}
 function onlineSnapshot() {
     return {
+        ht: performance.now() / 1000, replayFinal: !!(replay && replay.final),
         state, timeLeft, overtime, otTime, scores: [...scoreArr], countT, goalT,
         playerNames: cars.map(c=>({seat:c.netSeat,name:c.name,skin:c.skinId})),
         scorerSeat: replayScorer >= 0 ? cars[replayScorer]?.netSeat ?? null : null, goalTeam: lastGoalTeam,
@@ -2429,7 +2526,9 @@ function onlineSnapshot() {
             jumpN: c.jumpN.toArray(), canFlip: c.canFlip,
             boost: c.boost, boostIdle: c.boostIdle,
             boosting: c.boosting, onGround: c.onGround, supersonic: c.supersonic,
-            steer: c.input.steer, stats: c.stats })),
+            steer: c.input.steer, stats: c.stats,
+            ack: remoteInputs.get(c.netSeat)?.seq ?? null,
+            ackAge: remoteInputs.has(c.netSeat) ? (performance.now() - remoteInputs.get(c.netSeat).rt) / 1000 : 0 })),
     };
 }
 function onlineApplySnapshot(snap) {
@@ -2457,12 +2556,46 @@ function onlineApplySnapshot(snap) {
     scoreArr = snap.scores;
     updateScoreHud();
     $('clock').classList.toggle('ot', overtime);
-    if (snap.ball && Array.isArray(snap.ball.pos)) {
-        ball.pos.fromArray(snap.ball.pos);
-        ball.vel.fromArray(snap.ball.vel);
+    const scorerIdx = cars.findIndex(c => c.netSeat === snap.scorerSeat);
+    if (snap.state === 'replay') {
+        if (state !== 'replay') {
+            lastGoalTeam = snap.goalTeam;
+            replayScorer = scorerIdx;
+            if (!startReplay(!!snap.replayFinal))
+                state = 'goal';
+        }
+        if (state === 'replay')
+            return;
+    }
+    else if (state === 'replay') {
+        replay = null;
+        $('hud').classList.remove('replaying');
+        shock.visible = false;
+    }
+    const live = snap.state === 'play' || snap.state === 'goal';
+    const own = snap.cars.find(d => d && d.seat === online.seat);
+    if (own && Number.isInteger(own.ack) && netSent.has(own.ack)) {
+        const sample = performance.now() / 1000 - netSent.get(own.ack) - clamp(+own.ackAge || 0, 0, 1);
+        if (sample > 0 && sample < 2) netRtt += (sample - netRtt) * .15;
+    }
+    const lead = live ? clamp(netRtt / 2, 0, .3) * (snap.state === 'goal' && snap.goalT > 2 ? .35 : 1) : 0;
+    if (snap.ball && Array.isArray(snap.ball.pos) && Array.isArray(snap.ball.vel)) {
         ball.spin.fromArray(snap.ball.spin);
         ball.active = !!snap.ball.active;
         ball.mesh.visible = ball.active;
+        const touching = snap.state === 'play' && performance.now() / 1000 - netTouchAt < netRtt + .12;
+        if (!touching) {
+            _nbp.fromArray(snap.ball.pos);
+            _nbv.fromArray(snap.ball.vel);
+            for (let t = lead; t > 1e-4; t -= 1 / 120)
+                simBall(_nbp, _nbv, Math.min(1 / 120, t));
+            if (live) netSetPos(ball, _nbp);
+            else {
+                ball.pos.copy(_nbp);
+                if (ball.nvo) ball.nvo.set(0, 0, 0);
+            }
+            ball.vel.copy(_nbv);
+        }
     }
     for (const data of snap.cars) {
         const c = cars.find(x => x.netSeat === data.seat);
@@ -2470,15 +2603,27 @@ function onlineApplySnapshot(snap) {
         _netPos.fromArray(data.pos); _netVel.fromArray(data.vel); _netQ.fromArray(data.q);
         const predicted = data.seat === online.seat && state === 'play' && snap.state === 'play';
         if (predicted) {
-            if (c.pos.distanceToSquared(_netPos) > 225) {
+            let past = null;
+            if (Number.isInteger(data.ack) && netSent.has(data.ack))
+                past = netHistAt(netSent.get(data.ack) + clamp(+data.ackAge || 0, 0, .5));
+            const refP = past ? past.p : c.pos, refV = past ? past.v : c.vel;
+            _netErr.copy(_netPos).sub(refP);
+            const err = _netErr.length();
+            if (err > 15) {
                 c.pos.copy(_netPos); c.vel.copy(_netVel); c.q.copy(_netQ);
-            } else {
-                c.pos.lerp(_netPos, .22);
-                c.vel.lerp(_netVel, .3);
-                c.q.slerp(_netQ, .28);
+                if (c.nvo) c.nvo.set(0, 0, 0);
+                netHist.length = 0;
+            } else if (err > .5) {
+                const k = past ? .3 : .1;
+                netSetPos(c, _nt.copy(c.pos).addScaledVector(_netErr, k));
+                c.vel.addScaledVector(_nv.copy(_netVel).sub(refV), k);
             }
+        } else if (live) {
+            netSetPos(c, _nt.copy(_netPos).addScaledVector(_netVel, lead));
+            c.vel.copy(_netVel); c.q.copy(_netQ);
         } else {
             c.pos.copy(_netPos); c.vel.copy(_netVel); c.q.copy(_netQ);
+            if (c.nvo) c.nvo.set(0, 0, 0);
         }
         if (Array.isArray(data.n)) {
             if (predicted) c.n.lerp(_netPos.fromArray(data.n), .35).normalize();
@@ -2498,8 +2643,15 @@ function onlineApplySnapshot(snap) {
         c.stats = data.stats;
     }
     state = snap.state === 'replay' ? 'goal' : snap.state;
+    if (state === 'countdown' && typeof snap.countT === 'number')
+        countT = snap.countT;
+    if (typeof snap.goalT === 'number')
+        goalT = snap.goalT;
     if (previous !== state) {
         if (state === 'goal') {
+            lastGoalTeam = snap.goalTeam;
+            replayScorer = scorerIdx;
+            saveLastGoalReplay();
             showCenter('GOAL!', 1.5, '#fff');
             const scorer = cars.find(c => c.netSeat === snap.scorerSeat);
             const scorerName = scorer ? scorer.name : TEAM_NAME[snap.goalTeam] || 'TEAM';
@@ -2510,8 +2662,12 @@ function onlineApplySnapshot(snap) {
             $('sub').classList.remove('show');
             centerTimer = subTimer = 0;
             camSnap = true;
+            lastCount = 0;
         }
-        if (state === 'play' && previous === 'countdown') showCenter('GO!', .7, '#7dff9a');
+        if (state === 'play' && previous === 'countdown') {
+            showCenter('GO!', .7, '#7dff9a');
+            sfx.beep(true);
+        }
         if (state === 'ended') endMatch();
     }
 }
@@ -2727,7 +2883,9 @@ async function searchRealPlayer() {
     };
     online.onInput = p => {
         if (online.isHost && Number.isInteger(p.seat) && p.seat >= 0 && p.seat < settings.mode * 2 && p.seat !== online.seat) {
-            remoteInputs.set(p.seat, { controls: p.controls, at: Date.now() });
+            const prev = remoteInputs.get(p.seat);
+            if (prev && Number.isInteger(prev.seq) && Number.isInteger(p.seq) && p.seq < prev.seq) return;
+            remoteInputs.set(p.seat, { controls: p.controls, at: Date.now(), seq: p.seq, rt: performance.now() });
         }
     };
     online.onSnapshot = onlineApplySnapshot;
@@ -2869,15 +3027,20 @@ function replayApply() {
     }
 }
 function stepReplay(dt) {
-    const r = replay;
+    const r = replay, guest = online.active && !online.isHost;
     if (!r) {
-        afterGoal();
+        if (!guest)
+            afterGoal();
         return;
     }
     if (r.hold > 0) {
         r.hold -= dt;
-        if (r.hold <= 0)
-            afterGoal();
+        if (r.hold <= 0) {
+            if (guest)
+                r.hold = 1e-3;
+            else
+                afterGoal();
+        }
         return;
     }
     const targetGoalZ = r.team === 0 ? HL : -HL;
@@ -2987,9 +3150,9 @@ function updateCoinUI() {
 }
 const storeUI = (() => {
     const cv = $('storeView');
-    let r2 = null, pscene, pcam, turntable, ring, viewCar = null, open = false, raf = 0, showTok = 0, thumbJob = null;
+    let r2 = null, pscene, pcam, turntable, ring, viewCar = null, open = false, raf = 0, showTok = 0, thumbJob = null, thumbTick = 0, openedAt = 0;
     let sel = STORE.equipped, filter = 'all', from = 'choosePlay', kind = 'car';
-    const thumbs = {}, thumbQ = [];
+    const thumbs = Object.assign({}, window.TC_THUMBS || {}), thumbQ = [];
     const KIND = {
         car: { list: SKINS, by: SKIN_BY_ID, owned: () => STORE.owned, get eq() { return STORE.equipped; }, set eq(v) { STORE.equipped = v; online.setSkin && online.setSkin(v); }, target: .7 },
         ball: { list: BALLS, by: BALL_BY_ID, owned: () => STORE.ownedBalls, get eq() { return STORE.ball; }, set eq(v) { STORE.ball = v; }, target: 1.62 },
@@ -3097,15 +3260,17 @@ const storeUI = (() => {
         cv.addEventListener('wheel', e => { e.preventDefault(); dist = clamp(dist * (1 + Math.sign(e.deltaY) * .08), 6.5, 17); idleT = 0; }, { passive: false });
         cv.addEventListener('dblclick', () => { yaw = .7; pitch = .32; dist = 10.5; vy = vp = 0; });
         for (const s of SKINS)
-            thumbQ.push(['car', s.id]);
+            if (!thumbs['car:' + s.id])
+                thumbQ.push(['car', s.id]);
         for (const b of BALLS)
-            thumbQ.push(['ball', b.id]);
+            if (!thumbs['ball:' + b.id])
+                thumbQ.push(['ball', b.id]);
     }
     function size() {
         const w = cv.clientWidth, h = cv.clientHeight;
         if (!w || !h)
             return;
-        const pw = Math.round(w * r2.getPixelRatio()), ph = Math.round(h * r2.getPixelRatio());
+        const pw = Math.floor(w * r2.getPixelRatio()), ph = Math.floor(h * r2.getPixelRatio());
         if (cv.width !== pw || cv.height !== ph)
             r2.setSize(w, h, false);
         pcam.aspect = w / h;
@@ -3192,11 +3357,13 @@ const storeUI = (() => {
         lastT = now;
         SKIN_TIME.value = now / 1000;
         size();
-        if (!drag) {
+        if (!drag && (++thumbTick % 4 === 0) && now - openedAt > 1500) {
             if (thumbJob && thumbJob.ready)
                 renderThumb();
             else
                 startThumbJob();
+        }
+        if (!drag) {
             idleT += dt;
             vy *= Math.exp(-9 * dt);
             vp *= Math.exp(-9 * dt);
@@ -3315,12 +3482,33 @@ const storeUI = (() => {
         buildGrid();
         $('skinGrid').scrollTop = 0;
     });
+    function prepare() {
+        if (r2 || open)
+            return;
+        init();
+        r2.setSize(480, 300, false);
+        pcam.aspect = 1.6;
+        pcam.updateProjectionMatrix();
+        for (const [k, item] of [['car', SKIN_BY_ID[STORE.equipped] || SKINS[0]], ['ball', BALL_BY_ID[STORE.ball] || BALLS[0]]]) {
+            const h = makeCar(item, k);
+            turntable.add(h);
+            TARGET.y = KIND[k].target;
+            placeCam(.85, .3, 9.2);
+            r2.render(pscene, pcam);
+            h.visible = false;
+        }
+        TARGET.y = KIND.car.target;
+    }
+    for (const ev of ['pointerenter', 'focus', 'touchstart'])
+        $('storeBtn').addEventListener(ev, prepare, { passive: true });
     return {
+        prepare,
         get open() { return open; },
         show() {
             if (!r2)
                 init();
             open = true;
+            openedAt = performance.now();
             from = $('choosePlay').classList.contains('hidden') ? 'menu' : 'choosePlay';
             $(from).classList.add('hidden');
             $('store').classList.remove('hidden');
@@ -3355,23 +3543,64 @@ const _cn = new V3();
 function update(dt) {
     clockTime += dt;
     if (online.active && !online.isHost) {
+        simTime += dt;
         if (player) {
             readPlayer(player);
             if (paused) clearInput(player.input);
             onlineInputTimer += dt;
-            if (onlineInputTimer >= 1 / 30) {
-                online.sendInput(serializeInput(player.input));
+            const ser = serializeInput(player.input), key = ser.join(',');
+            if (key !== netLastInput || onlineInputTimer >= 1 / 30) {
+                netSeq++;
+                netSent.set(netSeq, performance.now() / 1000);
+                if (netSent.size > 300)
+                    netSent.delete(netSent.keys().next().value);
+                online.sendInput(ser, netSeq);
+                netLastInput = key;
                 onlineInputTimer = 0;
             }
-            if (!paused && state === 'play') {
-                acc = Math.min(acc + dt, .08);
+        }
+        if (state === 'replay')
+            stepReplay(dt);
+        else {
+            if (state === 'play' || state === 'goal') {
+                if (state === 'goal') goalT -= dt;
+                const scale = state === 'goal' && goalT > 2.0 ? .35 : 1;
+                acc = Math.min(acc + dt * scale, .1);
                 while (acc >= STEP) {
                     acc -= STEP;
-                    updateCar(player, player.input, STEP);
-                    confineCar(player);
+                    for (const c of cars) {
+                        if (c === player && state === 'play') {
+                            updateCar(c, c.input, STEP);
+                        } else
+                            c.pos.addScaledVector(c.vel, STEP);
+                        confineCar(c);
+                    }
+                    if (ball.active) {
+                        stepBall(STEP);
+                        for (const c of cars)
+                            carBall(c);
+                    }
                 }
+                if (player && ball.active && state === 'play' && player.pos.distanceToSquared(ball.pos) < (BR + 4.5) ** 2)
+                    netTouchAt = performance.now() / 1000;
             } else acc = 0;
+            if (player && state === 'play')
+                netRecordSelf();
+            if (state === 'countdown') {
+                countT -= dt;
+                const n = Math.ceil(countT);
+                if (n !== lastCount && n > 0) {
+                    showCenter(String(n), .9);
+                    sfx.beep(false);
+                }
+                lastCount = n;
+            }
+            if (state === 'play' && simTime - lastRecT >= 1 / 60 - 1e-6) {
+                recFrame();
+                lastRecT = simTime;
+            }
         }
+        netDecay(dt);
         if (centerTimer > 0) centerTimer -= dt;
         if (subTimer > 0) subTimer -= dt;
         return;
@@ -3476,6 +3705,7 @@ const _cf = new V3(), _rq = new Q4(), _rax = new V3();
 function render(dt) {
     for (const c of cars) {
         c.mesh.position.copy(c.pos);
+        if (c.nvo) c.mesh.position.add(c.nvo);
         c.mesh.quaternion.copy(c.q);
         const vf = c.vel.dot(forwardOf(c, _cf));
         c.wheelRot += vf * dt / .59;
@@ -3498,6 +3728,7 @@ function render(dt) {
         }
     }
     ball.mesh.position.copy(ball.pos);
+    if (ball.nvo && state !== 'replay') ball.mesh.position.add(ball.nvo);
     if (ball.active) {
         const sp = Math.hypot(ball.vel.x, ball.vel.z);
         if (state !== 'replay') {
@@ -3559,20 +3790,33 @@ function render(dt) {
     }
     else {
         const c = player;
-        if (c.onGround)
-            _a.copy(c.fwd);
-        else
-            forwardOf(c, _a);
-        const facingUp = _b.set(0, 1, 0).applyQuaternion(c.q).y;
-        const canTrackHeading = c.onGround || (!c.flipping && facingUp > .45 && Math.abs(_a.y) < .65);
+        const bcOn = ballCam && ball.active && ball.mesh.visible;
+        let canTrackHeading, bcRate = 7, bcDist = 0;
+        if (bcOn) {
+            _a.set(ball.pos.x - c.pos.x, 0, ball.pos.z - c.pos.z);
+            bcDist = Math.sqrt(_a.lengthSq());
+            canTrackHeading = bcDist > 4;
+            bcRate = lerp(1.2, 3.4, clamp((bcDist - 6) / 40, 0, 1));
+        }
+        else {
+            if (c.onGround)
+                _a.copy(c.fwd);
+            else
+                forwardOf(c, _a);
+            const facingUp = _b.set(0, 1, 0).applyQuaternion(c.q).y;
+            canTrackHeading = c.onGround || (!c.flipping && facingUp > .45 && Math.abs(_a.y) < .65);
+        }
         _a.y = 0;
         if (canTrackHeading && _a.lengthSq() > .15) {
             _a.normalize();
             const current = Math.atan2(camDirX, camDirZ);
             const desired = Math.atan2(_a.x, _a.z);
             const angle = Math.atan2(Math.sin(desired - current), Math.cos(desired - current));
-            const turn = camSnap ? 1 : 1 - Math.exp(-7 * dt);
-            const heading = current + angle * turn;
+            const turn = camSnap ? 1 : 1 - Math.exp(-bcRate * dt);
+            let step = angle * turn;
+            if (bcOn && !camSnap)
+                step = clamp(step, -2 * dt, 2 * dt);
+            const heading = current + step;
             camDirX = Math.sin(heading);
             camDirZ = Math.cos(heading);
         }
@@ -3582,6 +3826,15 @@ function render(dt) {
         const lookAhead = 6 - 2 * camFlipBlend;
         camPosT.set(c.pos.x - camDirX * distance, c.pos.y + height, c.pos.z - camDirZ * distance);
         camLookT.set(c.pos.x + camDirX * lookAhead, c.pos.y + 1.6 + .7 * camFlipBlend, c.pos.z + camDirZ * lookAhead);
+        if (bcOn) {
+            const hd = Math.max(4, Math.hypot(ball.pos.x - camPosT.x, ball.pos.z - camPosT.z));
+            const want = bcDist > 4 ? clamp(Math.atan2(ball.pos.y - camPosT.y, hd), -.22, .2) : bcPitch;
+            bcPitch = camSnap ? want : bcPitch + (want - bcPitch) * (1 - Math.exp(-3 * dt));
+            const reach = distance + lookAhead;
+            camLookT.set(c.pos.x + camDirX * lookAhead, camPosT.y + Math.tan(bcPitch) * reach, c.pos.z + camDirZ * lookAhead);
+        }
+        else
+            bcPitch = Math.atan2(camLookT.y - camPosT.y, distance + lookAhead);
         for (let k = 0; k < 2; k++) {
             const dc = arenaD(camPosT.x, camPosT.y, camPosT.z);
             if (dc < 2) {
@@ -3719,17 +3972,38 @@ function frame(now) {
     }
     if (online.active && online.isHost) {
         onlineSnapshotTimer += dt;
-        if (onlineSnapshotTimer >= .05) {
+        if (onlineSnapshotTimer >= 1 / 30) {
             online.sendSnapshot(onlineSnapshot());
             onlineSnapshotTimer = 0;
         }
     }
+    if (splashUp()) {
+        const t = performance.now();
+        if (t >= 3300 && t <= 5700) {
+            if (!gameWarm)
+                warmGame();
+            else
+                storeUI.prepare();
+        }
+        return;
+    }
+    if (!gameWarm)
+        warmGame();
     render(paused && !online.active ? 0 : dt);
     governor(Math.min(raw, .25), now);
 }
+const splashEl = document.getElementById('playvoraSplash');
+let gameWarm = false;
+function splashUp() { return !!splashEl && splashEl.isConnected; }
+function warmGame() {
+    gameWarm = true;
+    buildEnv();
+    renderer.compile(scene, camera);
+    render(0.016);
+}
 setupMatch(true);
-renderer.compile(scene, camera);
-render(0.016);
+if (!splashUp())
+    warmGame();
 $('loading').remove();
 perfHold(4000);
 requestAnimationFrame(frame);
