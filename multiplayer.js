@@ -1,5 +1,6 @@
 (() => {
   const DEFAULT_LOST = 'Player disconnected. Match ended.';
+  const NO_PLAYERS = 'No other players joined this match. Try again.';
   const RTC_CONFIG = { iceServers: [
     { urls: ['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302'] }
   ] };
@@ -12,7 +13,8 @@
     finding: false, starting: false, active: false, ending: false,
     lastPacket: 0, readyAt: 0, signalCursor: 0, signalBusy: false,
     snapshotSeq: 0, receivedSnapshotSeq: 0,
-    onFound: null, onStart: null, onSnapshot: null, onInput: null, onLost: null
+    onFound: null, onStart: null, onSnapshot: null, onInput: null, onLost: null,
+    onReplay: null, onReplayAck: null
   };
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
   const errorText = err => (err && err.message) || String(err);
@@ -129,6 +131,66 @@
     API.lastPacket=Date.now();
     if (API.onSnapshot) API.onSnapshot(packet.data);
   }
+  // A replay uses the reliable ordered control channel. Chunk size stays below
+  // the WebRTC per-message limit even in six-player matches.
+  function sendReplay(id, source, team, scorerSeat) {
+    if (!API.active || !API.isHost || !source || !Number.isInteger(id)) return;
+    const bytes=new Uint8Array(source.buf.buffer,source.buf.byteOffset,source.buf.byteLength);
+    let binary='';
+    for (let at=0;at<bytes.length;at+=8192)
+      binary+=String.fromCharCode(...bytes.subarray(at,at+8192));
+    const base64=btoa(binary), chunks=[];
+    for (let at=0;at<base64.length;at+=8000) chunks.push(base64.slice(at,at+8000));
+    for (const peer of API.peers.values()) {
+      // Cancel only an older replay's unsent chunks when a new goal occurs.
+      const job={id,index:0,chunks,meta:{type:'replay-meta',id,stride:source.stride,
+        count:source.count,team,scorerSeat,parts:chunks.length},metaSent:false};
+      peer.replayJob=job;
+      const pump=()=>{
+        if (!API.active || peer.replayJob!==job || !peerConnected(peer)) return;
+        if (!job.metaSent) {
+          if (!sendControl(peer,job.meta)) return;
+          job.metaSent=true;
+        }
+        while (job.index<chunks.length && peer.control.bufferedAmount<64000) {
+          if (!sendControl(peer,{type:'replay-chunk',id,index:job.index,
+              value:chunks[job.index]})) return;
+          job.index++;
+        }
+        if (job.index<chunks.length) setTimeout(pump,30);
+      };
+      pump();
+    }
+  }
+  function receiveReplay(peer,packet) {
+    if (API.isHost || !API.active) return;
+    if (packet.type==='replay-meta') {
+      if (!Number.isInteger(packet.id) || packet.id<1 || !Number.isInteger(packet.stride) ||
+          packet.stride<34 || packet.stride>78 || !Number.isInteger(packet.count) ||
+          packet.count<20 || packet.count>600 || !Number.isInteger(packet.parts) ||
+          packet.parts<1 || packet.parts>100 || ![0,1].includes(packet.team)) return;
+      peer.replayIn={id:packet.id,stride:packet.stride,count:packet.count,
+          team:packet.team,scorerSeat:packet.scorerSeat,parts:new Array(packet.parts),received:0};
+      return;
+    }
+    const r=peer.replayIn;
+    if (!r || packet.id!==r.id || !Number.isInteger(packet.index) ||
+        packet.index<0 || packet.index>=r.parts.length || typeof packet.value!=='string' ||
+        packet.value.length>8000 || r.parts[packet.index]!==undefined) return;
+    r.parts[packet.index]=packet.value; r.received++;
+    if (r.received!==r.parts.length) return;
+    peer.replayIn=null;
+    try {
+      const raw=atob(r.parts.join(''));
+      if (raw.length!==r.stride*r.count*4) return;
+      const data=new Uint8Array(raw.length);
+      for (let i=0;i<raw.length;i++) data[i]=raw.charCodeAt(i);
+      const buf=new Float32Array(data.buffer);
+      if (API.onReplay) API.onReplay({id:r.id,stride:r.stride,count:r.count,
+        team:r.team,scorerSeat:r.scorerSeat,buf});
+      sendControl(peer,{type:'replay-ack',id:r.id});
+    } catch(err) { console.warn('Discarded invalid replay data',err); }
+  }
   function handleData(peer,data) {
     let packet;
     try { packet=JSON.parse(data); } catch (_) { return; }
@@ -144,6 +206,13 @@
       startGuest(); return;
     }
     if (packet.type==='ping') { peer.lastSeen=Date.now(); return; }
+    if (!API.isHost && (packet.type==='replay-meta' || packet.type==='replay-chunk')) {
+      receiveReplay(peer,packet); return;
+    }
+    if (API.isHost && API.active && packet.type==='replay-ack') {
+      if (Number.isInteger(packet.id) && API.onReplayAck) API.onReplayAck(peer.seat,packet.id);
+      return;
+    }
     if (packet.type==='skin') {
       if (API.isHost && receivedSkin(packet.skin,peer.seat) && API.onSkin) API.onSkin(peer.seat,packet.skin);
       return;
@@ -282,7 +351,7 @@
       }
     }
   }
-  async function search(settings) {
+  async function search(settings, onSearching = null) {
     await cancel();
     API.finding=true; API.starting=false; API.active=false; API.ending=false;
     try {
@@ -301,7 +370,7 @@
         try {
           const st=await rpc('tc_status');
           if (API.room && (st.status==='none' || st.status==='cancelled')) {
-            lost(DEFAULT_LOST,'disconnect');
+            lost(API.finding ? NO_PLAYERS : DEFAULT_LOST, API.finding ? 'error' : 'disconnect');
           }
         } catch(_) { }
       },8000);
@@ -310,7 +379,10 @@
         try {
           const st=await rpc('tc_status');
           if (!API.finding) return;
-          if (st.status==='none' || st.status==='cancelled') return lost('That matchmaking room closed. Try again.','error');
+          if (!st || typeof st.status !== 'string') throw new Error('Invalid matchmaking response.');
+          if (st.status==='none' || st.status==='cancelled') return lost(NO_PLAYERS,'error');
+          // A retry reveals the search screen only after the queue responds successfully.
+          if (onSearching) { const ready=onSearching; onSearching=null; ready(); }
           if (st.status==='ready' && Array.isArray(st.players) && st.players.length===settings.mode*2) {
             API.members=st.players;
             API.finding=false; API.starting=true; API.readyAt=Date.now();
@@ -322,7 +394,7 @@
         } catch(err) { if(API.finding) lost('Matchmaking failed: '+errorText(err),'error'); }
       };
       API.polling=setInterval(poll,1100);
-      API.searchTimeout=setTimeout(()=>{if(API.finding)lost('No other player joined this search. Try again.','error');},120000);
+      API.searchTimeout=setTimeout(()=>{if(API.finding)lost(NO_PLAYERS,'error');},30000);
       await poll();
     } catch(err) {
       await cancel();
@@ -379,6 +451,6 @@
   };
   API.setSkin=id=>{ if (typeof id==='string' && /^[a-z]{2,16}$/.test(id)) API.skin=id; };
   API.search=search; API.cancel=cancel;
-  API.sendInput=sendInput; API.sendSnapshot=sendSnapshot; API.lost=lost;
+  API.sendInput=sendInput; API.sendSnapshot=sendSnapshot; API.sendReplay=sendReplay; API.lost=lost;
   window.TCMultiplayer=API;
 })();
