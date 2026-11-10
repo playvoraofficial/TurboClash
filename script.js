@@ -1590,7 +1590,7 @@ function updateCar(c, inp, dt) {
         vs += _grav.dot(_lv) * dt;
         if (c.slideT > 0)
             c.slideT -= dt;
-        vs *= Math.exp(-(inp.slide || c.slideT > 0 ? 2.0 : 14) * dt);
+        vs *= Math.exp(-(inp.slide || c.slideT > 0 ? 2.0 : 26) * dt);
         c.vel.copy(c.fwd).multiplyScalar(vf).addScaledVector(_lv, vs);
         setOrientation(c);
         if (jumpEdge) {
@@ -1764,7 +1764,7 @@ function land(c, n, d) {
     c.holdJump = false;
     c.stun = 0;
     c.angVel.set(0, 0, 0);
-    c.slideT = .3;
+    c.slideT = 0;
     c.n.copy(n);
     c.pos.addScaledVector(n, CAR_Y - d);
     if (!midFlip) {
@@ -1787,6 +1787,10 @@ function land(c, n, d) {
     }
     c.fwd.normalize();
     c.vel.addScaledVector(n, -c.vel.dot(n));
+    if (!(c.input && c.input.slide)) {
+        _up2.crossVectors(n, c.fwd);
+        c.vel.addScaledVector(_up2, -.75 * c.vel.dot(_up2));
+    }
     setOrientation(c);
 }
 const PROBES = [[0, CHZ], [0, -CHZ], [CHX, 0], [-CHX, 0], [CHX, CHZ], [-CHX, CHZ], [CHX, -CHZ], [-CHX, -CHZ]], _pr = new V3(), _pn = new V3();
