@@ -1793,7 +1793,7 @@ function createCar(team, name, human, skinOverride) {
         input: { throttle: 0, steer: 0, pitch: 0, roll: 0, jump: false, boost: false, slide: false },
         prevJump: false, canFlip: false, flipping: false, flipT: 0, flipAxis: new V3(), angVel: new V3(),
         airTime: 0, holdJump: false, stun: 0, slideT: 0, lastBumped: -9, supersonic: false, boosting: false,
-        lastHit: -9, stats: { goals: 0, shots: 0, saves: 0, touches: 0 }, ai: { stage: null, t: 0, hold: 0, opts: {}, stuck: 0, rev: 0 }, role: 'attack', wheelRot: 0,
+        lastHit: -9, lastBallContact: -9, lastSave: -9, lastShot: -9, stats: { goals: 0, shots: 0, saves: 0, touches: 0 }, ai: { stage: null, t: 0, hold: 0, opts: {}, stuck: 0, rev: 0 }, role: 'attack', wheelRot: 0,
     };
 }
 function repaintCar(c, id) {
@@ -2229,14 +2229,57 @@ function simBall(p, v, h) {
             v.addScaledVector(_sbn, -vn * 1.6);
     }
 }
-const _gp = new V3(), _gv = new V3();
+// Forecast an unobstructed shot using the same 120 Hz ball dynamics as gameplay.
+// Only car collisions are omitted: the question is whether this exact car hit
+// prevented a ball that would otherwise have crossed the goal line.
+const _gp = new V3(), _gv = new V3(), _gn = new V3();
+const GOAL_FORECAST_STEPS = Math.ceil(10 / STEP);
+const GOAL_FORECAST_DRAG = Math.exp(-.03 * STEP);
+const GOAL_FORECAST_FRICTION = 1 - Math.exp(-.12 * STEP);
+function forecastPost(p, v, ax, ay, az, bx, by, bz) {
+    const sx = bx - ax, sy = by - ay, sz = bz - az;
+    const t = clamp(((p.x - ax) * sx + (p.y - ay) * sy + (p.z - az) * sz) / (sx * sx + sy * sy + sz * sz), 0, 1);
+    const dx = p.x - ax - sx * t, dy = p.y - ay - sy * t, dz = p.z - az - sz * t;
+    const dist = Math.hypot(dx, dy, dz), radius = BR + .6;
+    if (dist >= radius || dist < 1e-6) return;
+    const nx = dx / dist, ny = dy / dist, nz = dz / dist;
+    const penetration = radius - dist;
+    p.x += nx * penetration; p.y += ny * penetration; p.z += nz * penetration;
+    const vn = v.x * nx + v.y * ny + v.z * nz;
+    if (vn < 0) {
+        v.x -= 1.6 * vn * nx; v.y -= 1.6 * vn * ny; v.z -= 1.6 * vn * nz;
+    }
+}
 function goalBound(pos, vel) {
-    _gp.copy(pos);
-    _gv.copy(vel);
-    for (let i = 0; i < 180; i++) {
-        simBall(_gp, _gv, 1 / 60);
-        if (Math.abs(_gp.z) > HL + BR * .5)
-            return Math.sign(_gp.z);
+    _gp.copy(pos); _gv.copy(vel);
+    if (Math.abs(_gp.z) > HL + BR * .95) return Math.sign(_gp.z);
+    for (let i = 0; i < GOAL_FORECAST_STEPS; i++) {
+        _gv.y -= G * STEP;
+        _gv.multiplyScalar(GOAL_FORECAST_DRAG);
+        _gp.addScaledVector(_gv, STEP);
+        const d = arenaD(_gp.x, _gp.y, _gp.z);
+        if (d < BR + .02) {
+            arenaN(_gp, _gn);
+            if (d < BR) _gp.addScaledVector(_gn, BR - d);
+            const vn = _gv.dot(_gn);
+            if (vn < 0) {
+                _gv.addScaledVector(_gn, -1.6 * vn);
+                if (-vn * .6 < 1.2) _gv.addScaledVector(_gn, -_gv.dot(_gn));
+            }
+            const vn2 = _gv.dot(_gn);
+            _gv.x -= (_gv.x - _gn.x * vn2) * GOAL_FORECAST_FRICTION;
+            _gv.y -= (_gv.y - _gn.y * vn2) * GOAL_FORECAST_FRICTION;
+            _gv.z -= (_gv.z - _gn.z * vn2) * GOAL_FORECAST_FRICTION;
+        }
+        if (Math.abs(_gp.z) > HL - BR - 1) {
+            const s = Math.sign(_gp.z) || 1;
+            forecastPost(_gp, _gv, -GW / 2, 0, s * HL, -GW / 2, GH, s * HL);
+            forecastPost(_gp, _gv, GW / 2, 0, s * HL, GW / 2, GH, s * HL);
+            forecastPost(_gp, _gv, -GW / 2, GH, s * HL, GW / 2, GH, s * HL);
+        }
+        const speed = _gv.length();
+        if (speed > BALL_MAX) _gv.multiplyScalar(BALL_MAX / speed);
+        if (Math.abs(_gp.z) > HL + BR * .95) return Math.sign(_gp.z);
     }
     return 0;
 }
@@ -2247,15 +2290,17 @@ function carBall(c) {
     _b.set(clamp(_a.x, -CHX, CHX), clamp(_a.y, -CHY, CHY), clamp(_a.z, -CHZ, CHZ));
     _d.subVectors(_a, _b);
     let dist = _d.length();
-    if (dist >= BR)
-        return;
+    if (dist >= BR) return;
+    // The ball really overlapped the car's collision box. Sustained contact
+    // counts once, rather than awarding another touch every 0.12 seconds.
+    const newTouch = simTime - c.lastBallContact > .04;
+    c.lastBallContact = simTime;
     _bvPrev.copy(ball.vel);
     if (dist < 1e-4) {
         _d.set(0, 1, 0);
         dist = 0;
     }
-    else
-        _d.divideScalar(dist);
+    else _d.divideScalar(dist);
     _d.applyQuaternion(c.q);
     ball.pos.addScaledVector(_d, BR - dist);
     _c.subVectors(ball.vel, c.vel);
@@ -2264,37 +2309,46 @@ function carBall(c) {
         ball.vel.addScaledVector(_d, -1.15 * vn);
         c.vel.addScaledVector(_d, vn * .08);
     }
-    if (simTime - c.lastHit > 0.12) {
+    const poweredHit = simTime - c.lastHit > .12;
+    if (poweredHit) {
         c.lastHit = simTime;
         _a.subVectors(ball.pos, c.pos);
         _a.y *= .35;
         _a.normalize();
         ball.vel.addScaledVector(_a, Math.min(relSpeed, 100) * .15 + 2 + (c.flipping ? 14 : 0));
         const sp = ball.vel.length();
-        if (sp > BALL_MAX)
-            ball.vel.multiplyScalar(BALL_MAX / sp);
+        if (sp > BALL_MAX) ball.vel.multiplyScalar(BALL_MAX / sp);
+        if (relSpeed > 8) {
+            sfx.hit(relSpeed);
+            if (relSpeed > 45) shake = Math.max(shake, .25);
+        }
+        ball.spin.set(rand(-1, 1), rand(-1, 1), rand(-1, 1)).multiplyScalar(relSpeed * .08);
+    }
+    // The online host is the single authority for statistics and goal credit.
+    if (state !== 'play' || netGuest()) return;
+    if (newTouch) {
         c.stats.touches++;
         lastTouch[c.team] = c;
         lastToucher = c;
         touchInfo = { name: c.name, team: c.team, t: +simTime.toFixed(2) };
-        if (state === 'play' && !netGuest()) {
-            const ad = c.team === 0 ? 1 : -1, before = goalBound(ball.pos, _bvPrev), after = goalBound(ball.pos, ball.vel);
-            if (before === -ad && after !== -ad) {
-                c.stats.saves++;
-                feed(`<span style="color:${TEAM_CSS[c.team]}">${c.name}</span> saved`);
-                if (c.human)
-                    showCenter('SAVE!', 1.1, TEAM_CSS[c.team]);
-                sfx.swell(.7);
-            }
-            if (after === ad && before !== ad)
-                c.stats.shots++;
+    }
+    if (newTouch || poweredHit) {
+        const ad = c.team === 0 ? 1 : -1;
+        const before = goalBound(ball.pos, _bvPrev);
+        const after = goalBound(ball.pos, ball.vel);
+        // A save only happens if this contact changes a would-be own-goal
+        // trajectory into one that will NOT cross that goal line.
+        if (before === -ad && after !== -ad && simTime - c.lastSave > .6) {
+            c.lastSave = simTime;
+            c.stats.saves++;
+            feed(`<span style="color:${TEAM_CSS[c.team]}">${c.name}</span> saved`);
+            if (c.human) showCenter('SAVE!', 1.1, TEAM_CSS[c.team]);
+            sfx.swell(.7);
         }
-        if (relSpeed > 8) {
-            sfx.hit(relSpeed);
-            if (relSpeed > 45)
-                shake = Math.max(shake, .25);
+        if (after === ad && before !== ad && simTime - c.lastShot > .6) {
+            c.lastShot = simTime;
+            c.stats.shots++;
         }
-        ball.spin.set(rand(-1, 1), rand(-1, 1), rand(-1, 1)).multiplyScalar(relSpeed * .08);
     }
 }
 const OA = [new V3(), new V3(), new V3()], OB = [new V3(), new V3(), new V3()], CAND = Array.from({ length: 15 }, () => new V3());
@@ -2708,6 +2762,7 @@ const sfx = {
 };
 let state = 'menu', attract = true, paused = false;
 let player = null, scoreArr = [0, 0], timeLeft = 300, overtime = false, otTime = 0;
+let matchRewardsClaimed = false;
 let countT = 0, goalT = 0, kickoffT = 0, lastCount = 0, matchOverAfterGoal = false;
 let netGoalId = 0, netSeenGoalId = 0, netGoalPos = [0, BR, 0], netReplaySentAt = 0;
 const netReplaySources = new Map(), netReplayAcks = new Set();
@@ -2719,6 +2774,7 @@ let lastTouch = [null, null], lastToucher = null, ignoredOwnGoal = false, shake 
 const goalLog = [];
 function setupMatch(isAttract) {
     attract = isAttract;
+    matchRewardsClaimed = false;
     applyBallSkin();
     clearCars();
     const n = isAttract ? 2 : settings.mode;
@@ -2742,6 +2798,7 @@ function setupMatch(isAttract) {
 }
 function setupOnlineMatch() {
     attract = false;
+    matchRewardsClaimed = false;
     applyBallSkin();
     clearCars();
     remoteInputs.clear();
@@ -3052,6 +3109,7 @@ function placeCar(c, x, z) {
     c.ai.stuck = 0;
     c.ai.rev = 0;
     c.prevJump = true;
+    c.lastBallContact = -9;
     c.angVel.set(0, 0, 0);
 }
 function showGoalBurst(team, pos) {
@@ -3115,14 +3173,20 @@ function endMatch() {
     for (const c of [...cars].sort((a, b) => a.team - b.team || b.stats.goals - a.stats.goals))
         h += `<tr class="${c.team ? 'to' : 'tb'} ${c.human ? 'me' : ''}"><td>${c.name}</td><td>${c.stats.goals}</td><td>${c.stats.shots}</td><td>${c.stats.saves}</td><td>${c.stats.touches}</td></tr>`;
     $('stats').innerHTML = h;
-    $('coinGain').innerHTML = '';
-    if (player && !attract) {
-        const won = win === player.team;
-        const earn = won ? (online.active ? 200 : [100, 200, 300][settings.diff] || 100) : 0;
-        STORE.coins += earn;
-        saveStore();
-        updateCoinUI();
-        $('coinGain').innerHTML = `<span class="coinIco"></span>+${earn} COINS`;
+    if (!matchRewardsClaimed) {
+        matchRewardsClaimed = true;
+        $('coinGain').innerHTML = '';
+        if (player && !attract) {
+            const won = win === player.team;
+            const matchReward = won ? (online.active ? 200 : [100, 200, 300][settings.diff] || 100) : 0;
+            const goals = player.stats.goals;
+            const goalBonus = goals * 100;
+            const earn = matchReward + goalBonus;
+            STORE.coins += earn;
+            saveStore();
+            updateCoinUI();
+            $('coinGain').innerHTML = `<span class="coinIco"></span>+${earn} COINS<small>${matchReward} MATCH + ${goals} GOAL${goals === 1 ? '' : 'S'} × 100 = ${goalBonus} BONUS</small>`;
+        }
     }
     $('end').classList.remove('hidden');
     $('hud').classList.add('hidden');
