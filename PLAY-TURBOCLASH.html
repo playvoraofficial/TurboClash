@@ -4043,7 +4043,7 @@ function endMatch() {
             STORE.coins += earn;
             saveStore();
             updateCoinUI();
-            $('coinGain').innerHTML = `<span class="coinIco"></span>+${earn} COINS<small>${matchReward} MATCH + ${goals} GOAL${goals === 1 ? '' : 'S'} Ã— 100 = ${goalBonus} BONUS</small>`;
+            $('coinGain').innerHTML = `<span class="coinIco"></span>+${earn} COINS<small>${goals} GOAL${goals === 1 ? '' : 'S'} = ${goalBonus} BONUS</small>`;
         }
     }
     $('end').classList.remove('hidden');
