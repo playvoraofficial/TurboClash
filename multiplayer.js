@@ -1,15 +1,11 @@
 (() => {
   const DEFAULT_LOST = 'Player disconnected. Match ended.';
   const NO_PLAYERS = 'No other players joined this match. Try again.';
-  // A deployment can supply short-lived TURN credentials through rtcConfig.
-  // STUN remains the default; no unauthenticated public relay is assumed.
   const RTC_CONFIG = { iceServers: [
     { urls: ['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302'] }
   ], ...(window.PLAYVORA_GAMES?.rtcConfig || {}) };
   const STATE_QUEUE_LIMIT = 16384, INPUT_QUEUE_LIMIT = 2048;
   const RECOVERY_MS = 18000;
-  // Smooth a short history in host time. Presentation never runs backward,
-  // and a missing packet may only be extrapolated for 80 ms.
   class SnapshotBuffer {
     constructor() { this.clear(); }
     clear() {
