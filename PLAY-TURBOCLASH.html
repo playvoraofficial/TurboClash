@@ -17,6 +17,7 @@ canvas#gl{display:block;position:fixed;inset:0;width:100%;height:100%}
 @keyframes ld{from{transform:translateX(-100%)}to{transform:translateX(260%)}}
 
 #hud{position:fixed;inset:0;pointer-events:none}
+/* Screen-space labels remain crisp without dark boxes or connector lines. */
 #nameTags{position:absolute;inset:0;overflow:hidden;pointer-events:none}
 .tcNameTag{
   position:absolute;left:0;top:0;display:none;pointer-events:none;
@@ -24,6 +25,7 @@ canvas#gl{display:block;position:fixed;inset:0;width:100%;height:100%}
   font-family:"Segoe UI",Arial,sans-serif;font-size:16px;font-style:normal;
   font-weight:900;line-height:1.18;letter-spacing:.2px;
   text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased;
+  /* No background or nameplate: only the colored text and a fine readable edge. */
   background:none;box-shadow:none;
   -webkit-text-stroke:.45px rgba(8,13,25,.7);
   text-shadow:0 1px 1px rgba(0,0,0,.6);
@@ -414,13 +416,15 @@ window.PLAYVORA_GAMES = {
 (() => {
   const DEFAULT_LOST = 'Player disconnected. Match ended.';
   const NO_PLAYERS = 'No other players joined this match. Try again.';
-
+  // A deployment can supply short-lived TURN credentials through rtcConfig.
+  // STUN remains the default; no unauthenticated public relay is assumed.
   const RTC_CONFIG = { iceServers: [
     { urls: ['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302'] }
   ], ...(window.PLAYVORA_GAMES?.rtcConfig || {}) };
   const STATE_QUEUE_LIMIT = 16384, INPUT_QUEUE_LIMIT = 2048;
   const RECOVERY_MS = 18000;
-  /
+  // Smooth a short history in host time. Presentation never runs backward,
+  // and a missing packet may only be extrapolated for 80 ms.
   class SnapshotBuffer {
     constructor() { this.clear(); }
     clear() {
@@ -692,7 +696,8 @@ window.PLAYVORA_GAMES = {
     let packet;
     try { packet=JSON.parse(data); } catch (_) { return; }
     if (!packet || typeof packet !== 'object') return;
-    
+    // The host sends the authoritative final score over the reliable channel.
+    // A normal peer departure AFTER this point is not a match disconnect.
     if (packet.type==='match-finished') {
       if (API.finished || API.isHost || !API.active || peer.seat!==0 ||
           !packet.data || packet.data.state!=='ended' ||
@@ -936,6 +941,7 @@ window.PLAYVORA_GAMES = {
   }
   function finishMatch(snapshot=null) {
     if (!API.active || API.finished) return;
+    // The host announces completion before stopping the network monitors.
     if (API.isHost && snapshot && snapshot.state==='ended') {
       for (const peer of API.peers.values())
         sendControl(peer,{type:'match-finished',data:snapshot});
@@ -959,7 +965,8 @@ window.PLAYVORA_GAMES = {
     if (host.state && host.state.readyState==='open' && host.state.bufferedAmount<INPUT_QUEUE_LIMIT) {
       try { host.state.send(packet); } catch (_) {}
     }
-   
+    // Jump/release edges and neutral controls also travel reliably. Sequence
+    // checks make duplicates harmless, without queueing old movement frames.
     const edge=!API.lastInput || controls.slice(4).some((v,i)=>v!==API.lastInput[i+4]) ||
       (controls.every(v=>v===0) && API.lastInput.some(v=>v!==0));
     if (edge && host.control?.bufferedAmount<4096) sendControl(host,message);
@@ -968,14 +975,16 @@ window.PLAYVORA_GAMES = {
   function sendSnapshot(snapshot) {
     if (!API.active || API.finished || !API.isHost) return;
     const message={type:'snapshot',seq:++API.snapshotSeq,data:snapshot};
-    
+    // Millimetre-scale precision is ample for this arena and roughly halves
+    // bandwidth without altering the authoritative simulation.
     const packet=JSON.stringify(message,(key,v)=>typeof v==='number' && !Number.isInteger(v) ? Math.round(v*10000)/10000 : v);
     const phase=snapshot.state+':'+snapshot.goalId;
     for (const peer of API.peers.values()) {
       if (peer.state && peer.state.readyState==='open' && peer.state.bufferedAmount<STATE_QUEUE_LIMIT) {
         try { peer.state.send(packet); } catch (_) { detectDisconnect(peer); }
       }
-    
+      // Only phase changes need reliable delivery. Old per-frame snapshots
+      // must never build a second queue behind goal replay chunks.
       if (peer.lastPhase!==phase && sendControl(peer,JSON.parse(packet))) peer.lastPhase=phase;
     }
   }
@@ -5868,6 +5877,7 @@ const bctx = $('boostC').getContext('2d');
 let lastBoostKey = '';
 function drawBoost(b, idle, boosting) {
     const v = Math.round(b), label = boosting || v >= 100 ? 'BOOST' : idle < REGEN_DELAY ? `RECHARGE ${Math.ceil(REGEN_DELAY - idle)}s` : 'RECHARGING';
+    // Boost reserve: blue -> yellow -> orange -> red as the tank drains.
     const colors = v >= 75 ? ['#9fdcff', '#2f6bff'] :
         v >= 50 ? ['#fff3a3', '#ffd54a'] :
         v >= 25 ? ['#ffd0a0', '#ff8a24'] : ['#ffb0b0', '#ff3b3b'];
