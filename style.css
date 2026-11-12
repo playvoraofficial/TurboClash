@@ -10,6 +10,18 @@ canvas#gl{display:block;position:fixed;inset:0;width:100%;height:100%}
 @keyframes ld{from{transform:translateX(-100%)}to{transform:translateX(260%)}}
 
 #hud{position:fixed;inset:0;pointer-events:none}
+#nameTags{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.tcNameTag{
+  position:absolute;left:0;top:0;display:none;pointer-events:none;
+  padding:0;border:0;border-radius:0;white-space:nowrap;
+  font-family:"Segoe UI",Arial,sans-serif;font-size:16px;font-style:normal;
+  font-weight:900;line-height:1.18;letter-spacing:.2px;
+  text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased;
+  background:none;box-shadow:none;
+  -webkit-text-stroke:.45px rgba(8,13,25,.7);
+  text-shadow:0 1px 1px rgba(0,0,0,.6);
+}
+
 #score{position:absolute;top:14px;left:50%;transform:translateX(-50%);display:flex;align-items:stretch;font-weight:900;font-style:italic;filter:drop-shadow(0 4px 12px rgba(0,0,0,.6))}
 #score .t{min-width:78px;text-align:center;font-size:40px;line-height:58px;padding:0 18px}
 #score .b{background:linear-gradient(180deg,#4b97ff,#1c5fd6);clip-path:polygon(14px 0,100% 0,100% 100%,0 100%)}
