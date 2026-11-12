@@ -15,8 +15,12 @@ const rand = (a, b) => a + Math.random() * (b - a);
 function mulberry32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 const FW = 250, FL = 330, FH = 70, HW = FW / 2, HL = FL / 2;
 const GW = 60, GH = 22, GD = 24;
+// Leave the full goal frame visible instead of ending turf/glass at its centerline.
+const GOAL_POST_R = .6, GOAL_FRAME_CLEARANCE = GOAL_POST_R + .18;
+const GOAL_OPEN_HALF = GW / 2 + GOAL_FRAME_CLEARANCE;
 const RF = 11, RCORN = 45, GZ0 = HL - RF - 1;
 const BR = 3.5, G = 30, BALL_MAX = 150;
+const BALL_AIR_DRAG = .035, BALL_SURFACE_DRAG = .32, BALL_RESTITUTION = .58;
 const CHX = 1.45, CHY = 0.62, CHZ = 2.4, CAR_Y = 0.97;
 const MAX_DRIVE = 52, MAX_BOOST = 86, SUPERSONIC = 78, MAX_REV = 26;
 const BOOST_ACC = 52, AIR_BOOST = 50, BRAKE = 100, COAST = 10, BOOST_USE = 30;
@@ -133,8 +137,14 @@ const HDR_OK = (() => {
         return false;
     }
 })();
-const renderer = new THREE.WebGLRenderer({ canvas: $('gl'), antialias: !HDR_OK, powerPreference: 'high-performance' });
-const PR_MAX = Math.min(devicePixelRatio || 1, 1.5);
+const renderer = new THREE.WebGLRenderer({ canvas: $('gl'), antialias: true, powerPreference: 'high-performance' });
+// Keep a full CSS-resolution image even on the lowest quality tier. A small
+// amount of supersampling helps distant silhouettes on standard-DPI screens.
+function renderPixelRatio() {
+    return Math.max(1, Math.min(2, Math.max(1.25, devicePixelRatio || 1),
+        Math.sqrt(3600000 / Math.max(1, innerWidth * innerHeight))));
+}
+let PR_MAX = renderPixelRatio();
 let prCur = PR_MAX;
 renderer.setPixelRatio(prCur);
 renderer.setSize(innerWidth, innerHeight);
@@ -154,7 +164,16 @@ const SKY_HOR = new THREE.Color(0.44, 0.72, 1.3), FOG_LDR = acesColor(SKY_HOR, .
 scene.fog = new THREE.Fog(HDR_OK ? SKY_HOR : FOG_LDR, 140, 1900);
 const camera = new THREE.PerspectiveCamera(76, innerWidth / innerHeight, 0.2, 6000);
 camera.position.set(0, 50, -150);
-addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+addEventListener('resize', () => {
+    camera.aspect = innerWidth / innerHeight;
+    camera.updateProjectionMatrix();
+    PR_MAX = renderPixelRatio();
+    prCur = Math.min(PR_MAX, Math.max(1, prCur));
+    prNext = 0;
+    renderer.setPixelRatio(prCur);
+    renderer.setSize(innerWidth, innerHeight);
+    perfHold(1500);
+});
 const SUN = new V3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(40), THREE.MathUtils.degToRad(32));
 const ROOF_GLSL = `
 float tcRR(vec2 p){ vec2 q = abs(p) - vec2(${(BX - RC).toFixed(2)}, ${(BZ - RC).toFixed(2)}); return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - ${RC.toFixed(2)}; }
@@ -316,9 +335,16 @@ function updateShadow(cx, cz, ext) {
     sun.target.updateMatrixWorld();
 }
 function mkCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
-const MAX_ANI = Math.min(8, renderer.capabilities.getMaxAnisotropy());
-function mkTex(c, srgb = true) { const t = new THREE.CanvasTexture(c); if (srgb)
-    t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = MAX_ANI; return t; }
+const MAX_ANI = Math.min(16, renderer.capabilities.getMaxAnisotropy());
+function mkTex(c, srgb = true) {
+    const t = new THREE.CanvasTexture(c);
+    if (srgb) t.colorSpace = THREE.SRGBColorSpace;
+    t.minFilter = THREE.LinearMipmapLinearFilter;
+    t.magFilter = THREE.LinearFilter;
+    t.generateMipmaps = true;
+    t.anisotropy = MAX_ANI;
+    return t;
+}
 function rep(t, x, y) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(x, y); return t; }
 function shade(hex, a) {
     const n = parseInt(hex.slice(1), 16);
@@ -525,7 +551,7 @@ function makeTurfTex() {
     return t;
 }
 function makeBallTex() {
-    const W = 1536, H = 768;
+    const W = 2048, H = 1024;
     const cc = mkCanvas(W, H), cb = mkCanvas(W, H), gc = cc.getContext('2d'), gb = cb.getContext('2d');
     const ic = gc.createImageData(W, H), ib = gb.createImageData(W, H), dc = ic.data, db = ib.data;
     const ph = (1 + Math.sqrt(5)) / 2, P = [], X = [];
@@ -584,7 +610,9 @@ function makeBallTex() {
     }
     gc.putImageData(ic, 0, 0);
     gb.putImageData(ib, 0, 0);
-    return [mkTex(cc), mkTex(cb, false)];
+    const maps = [mkTex(cc), mkTex(cb, false)];
+    for (const t of maps) t.wrapS = THREE.RepeatWrapping;
+    return maps;
 }
 const SKIN = ['#f3cfa5', '#e8b98d', '#d9a273', '#c68642', '#a96b3c', '#8d5524', '#6b3e1f', '#4f2c16', '#f6d7c3', '#e0ac69'];
 const HAIR = ['#14100c', '#22180f', '#3b2616', '#5a3d22', '#7b5a36', '#a77b4a', '#d4b06a', '#8a8a8a', '#cfcfcf', '#5c2414'];
@@ -764,7 +792,7 @@ function arenaPath() {
         const t = a0 + i / 18 * Math.PI / 2;
         pts.push({ x: cx + RCORN * Math.cos(t), z: cz + RCORN * Math.sin(t), mx: -Math.cos(t), mz: -Math.sin(t) });
     } };
-    const brk = [(ax - GW / 2) / (2 * ax), (ax + GW / 2) / (2 * ax)];
+    const brk = [(ax - GOAL_OPEN_HALF) / (2 * ax), (ax + GOAL_OPEN_HALF) / (2 * ax)];
     line(HW, -az, HW, az, -1, 0);
     arc(ax, az, 0);
     line(ax, HL, -ax, HL, 0, -1, brk);
@@ -776,7 +804,7 @@ function arenaPath() {
     pts.push({ ...pts[0] });
     return pts;
 }
-const isMouth = (a, b) => Math.abs(Math.abs(a.z) - HL) < .01 && Math.abs(Math.abs(b.z) - HL) < .01 && Math.abs((a.x + b.x) / 2) < GW / 2;
+const isMouth = (a, b) => Math.abs(Math.abs(a.z) - HL) < .01 && Math.abs(Math.abs(b.z) - HL) < .01 && Math.abs((a.x + b.x) / 2) < GOAL_OPEN_HALF;
 function sweepGeo(path, prof, K, filter, uS, uV, vOff = 0) {
     const pos = [], nor = [], uv = [];
     let s = 0;
@@ -828,7 +856,7 @@ function glassShellGeo(path, half, K = 12) {
     for (let i = 0; i < path.length - 1; i++) {
         const a = path[i], b = path[i + 1], len = Math.hypot(b.x - a.x, b.z - a.z);
         if (len < 1e-6 || !half(a, b)) continue;
-        const y0 = isMouth(a, b) ? GH : RF;
+        const y0 = isMouth(a, b) ? GH + GOAL_FRAME_CLEARANCE : RF;
         const wall = y => [0, y, 1, 0, bendLength + wallTop - y];
         for (let j = 0; j < levels.length - 1; j++) {
             if (levels[j + 1] > y0 && levels[j + 1] > levels[j])
@@ -914,15 +942,17 @@ function buildArena() {
     const floorFil = k => { const f = k / K * Math.PI / 2; return [RF - RF * Math.sin(f), RF - RF * Math.cos(f), Math.sin(f), Math.cos(f)]; };
     const turf = turfMat(14, 14, { envMapIntensity: .5, emissive: 0x112b0c, side: THREE.DoubleSide });
     const ramp = new THREE.Mesh(sweepGeo(path, floorFil, K, (a, b) => !isMouth(a, b), 14, RF * 1.57 / 14), turf);
+    ramp.name = 'arena-turf-ramp';
     ramp.receiveShadow = true;
     scene.add(ramp);
     {
-        const pos = [];
+        const pos = [], uv = [];
         for (const sz of [-1, 1])
             for (const sx of [-1, 1]) {
-                const x0 = sx * GW / 2, J = 12, pts = [];
+                const x0 = sx * GOAL_OPEN_HALF, J = K, pts = [];
                 for (let j = 0; j <= J; j++) {
-                    const u = RF - j / J * RF, h = RF - Math.sqrt(Math.max(0, RF * RF - (RF - u) * (RF - u)));
+                    // Share the ramp's exact angular samples so its end has no cracks.
+                    const [u, h] = floorFil(j);
                     pts.push([sz * (HL - u), h]);
                 }
                 if ((pts[J][0] - pts[0][0]) * sx < 0)
@@ -930,12 +960,18 @@ function buildArena() {
                 for (let j = 0; j < J; j++) {
                     const [za, ha] = pts[j], [zb, hb] = pts[j + 1];
                     pos.push(x0, 0, za, x0, 0, zb, x0, hb, zb, x0, 0, za, x0, hb, zb, x0, ha, za);
+                    uv.push(za / 14, 0, zb / 14, 0, zb / 14, hb / 14,
+                            za / 14, 0, zb / 14, hb / 14, za / 14, ha / 14);
                 }
             }
         const g = new THREE.BufferGeometry();
         g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+        g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
         g.computeVertexNormals();
-        scene.add(new THREE.Mesh(g, turf));
+        const caps = new THREE.Mesh(g, turf);
+        caps.name = 'goal-ramp-end-caps';
+        caps.receiveShadow = true;
+        scene.add(caps);
     }
     const glassMat = (col, rep, op, topCol = col, topOp = op, grid = 1) => new THREE.ShaderMaterial({
         uniforms: { uCol: { value: new THREE.Color(col) }, uTopCol: { value: new THREE.Color(topCol) }, uScale: { value: 12 * rep }, uOp: { value: op }, uTopOp: { value: topOp }, uGrid: { value: grid }, uBall: glassBall },
@@ -977,6 +1013,7 @@ function buildArena() {
         const half = (a, b) => ((a.z + b.z) / 2 < 0) === (side === 0);
         const mat = glassMat(side ? 0xff9a9a : 0x9ac0ff, 1, .5);
         const shell = new THREE.Mesh(glassShellGeo(path, half, K), mat);
+        shell.name = 'arena-wall-shell-' + side;
         shell.renderOrder = 2;
         scene.add(shell);
     }
@@ -996,7 +1033,9 @@ function buildArena() {
         t.needsUpdate = true;
         t.wrapS = THREE.RepeatWrapping;
         ledTexes.push(t);
-        scene.add(new THREE.Mesh(sweepGeo(path, k => [.05, k ? BANNER_Y1 : BANNER_Y0, 1, 0], 1, (a, b) => !isMouth(a, b), 64, 1), new THREE.MeshBasicMaterial({ map: t, color: hdr(0xffffff, 2.2) })));
+        const banner = new THREE.Mesh(sweepGeo(path, k => [.05, k ? BANNER_Y1 : BANNER_Y0, 1, 0], 1, (a, b) => !isMouth(a, b), 64, 1), new THREE.MeshBasicMaterial({ map: t, color: hdr(0xffffff, 2.2) }));
+        banner.name = 'arena-wall-banner';
+        scene.add(banner);
     }
     for (const sz of [-1, 1])
         buildGoal(sz);
@@ -1006,8 +1045,8 @@ function buildGoal(sz) {
     const fm = new THREE.MeshStandardMaterial({ color: col, metalness: .45, roughness: .28, emissive: col, emissiveIntensity: .75 });
     const add = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; scene.add(m); return m; };
     for (const sx of [-1, 1])
-        add(new THREE.CylinderGeometry(.6, .6, GH, 18), fm, sx * GW / 2, GH / 2, sz * HL);
-    add(new THREE.CylinderGeometry(.6, .6, GW + 1.2, 18), fm, 0, GH, sz * HL).rotation.z = Math.PI / 2;
+        add(new THREE.CylinderGeometry(GOAL_POST_R, GOAL_POST_R, GH, 18), fm, sx * GW / 2, GH / 2, sz * HL);
+    add(new THREE.CylinderGeometry(GOAL_POST_R, GOAL_POST_R, GW + 2 * GOAL_POST_R, 18), fm, 0, GH, sz * HL).rotation.z = Math.PI / 2;
     const bm = new THREE.MeshStandardMaterial({ color: 0xe6e9ef, metalness: .6, roughness: .35 });
     for (const sx of [-1, 1]) {
         add(new THREE.CylinderGeometry(.3, .3, GH, 10), bm, sx * GW / 2, GH / 2, sz * (HL + GD));
@@ -1326,10 +1365,10 @@ function buildCrowdCards() {
     }
 }
 const jumboC = mkCanvas(1024, 430);
-let jumboKey = '', lastGoalTeam = -1;
+let jumboKey = '', lastGoalTeam = -1, lastOwnGoalBy = null;
 function drawJumbo() {
     const clock = overtime ? '+' + fmt(otTime) : fmt(timeLeft), flash = state === 'goal' || state === 'replay' ? lastGoalTeam : -1, rp = state === 'replay', fin = rp && !!(replay && replay.final);
-    const key = `${scoreArr[0]}|${scoreArr[1]}|${attract ? 'A' : clock}|${flash}|${rp}|${fin}|${replayScorer}`;
+    const key = `${scoreArr[0]}|${scoreArr[1]}|${attract ? 'A' : clock}|${flash}|${rp}|${fin}|${replayScorer}|${lastOwnGoalBy}`;
     if (key === jumboKey)
         return;
     jumboKey = key;
@@ -1355,7 +1394,9 @@ function drawJumbo() {
         g.fillText(word, W / 2, H / 2 - 20);
         g.font = '800 46px Segoe UI, Arial';
         const goalScorer = replayScorer >= 0 ? cars[replayScorer] : null;
-        g.fillText(`${goalScorer ? goalScorer.name : TEAM_NAME[flash]} SCORED!`, W / 2, H - 55);
+        const goalCaption = lastOwnGoalBy ? `OWN GOAL BY ${lastOwnGoalBy}` :
+            `${goalScorer ? goalScorer.name : TEAM_NAME[flash]} SCORED!`;
+        g.fillText(goalCaption, W / 2, H - 55);
     }
     else {
         const bw = 340;
@@ -1396,8 +1437,8 @@ function drawJumbo() {
 buildStadium();
 const [ballMap, ballBump] = makeBallTex();
 const ball = {
-    pos: new V3(0, BR, 0), vel: new V3(), active: true, spin: new V3(),
-    mesh: new THREE.Mesh(new THREE.SphereGeometry(BR, 64, 40), new THREE.MeshPhysicalMaterial({ map: ballMap, bumpMap: ballBump, bumpScale: 2.5, roughness: .42, metalness: 0, clearcoat: .35, clearcoatRoughness: .3 })),
+    pos: new V3(0, BR, 0), vel: new V3(), active: true, spin: new V3(), q: new Q4(),
+    mesh: new THREE.Mesh(new THREE.SphereGeometry(BR, 64, 40), classicBallMaterial()),
 };
 ball.mesh.castShadow = true;
 scene.add(ball.mesh);
@@ -1470,19 +1511,14 @@ function updateParts(dt) {
     pGeo.attributes.color.needsUpdate = true;
 }
 function makeNameTag(text, col) {
-    const c = mkCanvas(256, 64), g = c.getContext('2d');
-    g.font = 'italic 900 34px Segoe UI, Arial';
-    g.textAlign = 'center';
-    g.textBaseline = 'middle';
-    g.lineWidth = 6;
-    g.strokeStyle = 'rgba(0,0,0,.75)';
-    g.strokeText(text, 128, 32);
-    g.fillStyle = col;
-    g.fillText(text, 128, 32);
-    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: mkTex(c), color: hdr(0xffffff, 1.7), depthWrite: false, transparent: true }));
-    s.scale.set(7, 1.75, 1);
-    s.position.y = 3.1;
-    return s;
+    // CSS text is rasterized at the browser's actual screen resolution, not
+    // onto a low-res THREE.Sprite or into the postprocessing blur pipeline.
+    const el = document.createElement('div');
+    el.className = 'tcNameTag';
+    el.textContent = text;
+    el.style.color = col;
+    $('nameTags').appendChild(el);
+    return el;
 }
 const tireGeo = new THREE.LatheGeometry([[.34, -.25], [.5, -.26], [.57, -.2], [.59, -.07], [.59, .07], [.57, .2], [.5, .26], [.34, .25]].map(([x, y]) => new THREE.Vector2(x, y)), 24).rotateZ(Math.PI / 2);
 const rimGeo = new THREE.CylinderGeometry(.36, .36, .36, 20).rotateZ(Math.PI / 2);
@@ -1504,15 +1540,22 @@ const SKIN_GLSL = `
 uniform vec3 uSkA; uniform vec3 uSkB; uniform vec3 uSkC; uniform float uSkTime;
 varying vec3 vSkinP;
 float skH(vec3 p){ p = fract(p * 0.3183099 + .1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
-float skN(vec3 x){ vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
+float skRawN(vec3 x){ vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
   return mix(mix(mix(skH(i), skH(i + vec3(1,0,0)), f.x), mix(skH(i + vec3(0,1,0)), skH(i + vec3(1,1,0)), f.x), f.y),
              mix(mix(skH(i + vec3(0,0,1)), skH(i + vec3(1,0,1)), f.x), mix(skH(i + vec3(0,1,1)), skH(i + vec3(1,1,1)), f.x), f.y), f.z); }
+float skN(vec3 p){
+    float footprint = max(length(dFdx(p)), length(dFdy(p)));
+    return mix(skRawN(p), 0.5, smoothstep(0.35, 1.25, footprint));
+}
 float skF(vec3 p){ float a = 0.0, w = .5; for (int i = 0; i < 4; i++) { a += w * skN(p); p = p * 2.03 + 7.1; w *= .5; } return a; }
 `;
 const SKIN_PAT = {
     1: `float s = step(.1, abs(p.x)) * step(abs(p.x), .32) + step(abs(abs(p.x) - .42), .03);
         col = mix(uSkA, uSkB, clamp(s, 0.0, 1.0));`,
-    2: `float c = mod(floor(p.x * 2.6) + floor(p.y * 2.6) + floor(p.z * 2.6), 2.0);
+    2: `vec3 v = p * 2.6, w = max(fwidth(v), vec3(0.0001));
+        vec3 wave = sin(v * 3.14159265);
+        vec3 checks = smoothstep(-w * 1.6, w * 1.6, wave) * 2.0 - 1.0;
+        float c = (1.0 - checks.x * checks.y * checks.z) * 0.5;
         col = mix(uSkA, uSkB, c);`,
     3: `float n = skF(p * 1.4 + 3.0);
         col = n < .43 ? uSkA : (n < .56 ? uSkB : uSkC);`,
@@ -1523,7 +1566,9 @@ const SKIN_PAT = {
         col = mix(uSkA, fc, m); emi += fc * m * .35;`,
     5: `float n = skF(p * 1.1);
         col = mix(uSkA, uSkB, smoothstep(.35, .75, n));
-        float h = skH(floor(p * 38.0)); float st = step(.982, h);
+        float h = skH(floor(p * 38.0));
+        float sf = max(length(dFdx(p * 38.0)), length(dFdy(p * 38.0)));
+        float st = mix(step(.982, h), .018, smoothstep(.3, 1.1, sf));
         float tw = .6 + .4 * sin(uSkTime * 3.0 + h * 60.0);
         col = mix(col, vec3(1.0), st); emi += uSkB * smoothstep(.55, .8, n) * .25 + uSkC * st * 2.2 * tw; rough = .25;`,
     6: `vec3 d = abs(fract(p * 2.2) - .5);
@@ -1578,7 +1623,9 @@ const BALL_PAT = {
         col = s < 1. ? vec3(.85,.05,.04) : s < 2. ? vec3(1.,.75,.02) : s < 3. ? vec3(.95) : s < 4. ? vec3(.02,.25,.9) : s < 5. ? vec3(.1,.7,.15) : vec3(1.,.35,.02);
         col = mix(col, vec3(.95), step(.9, abs(d.y))); col = mix(col, vec3(.8,.05,.04), step(.985, abs(d.y)));`,
     basket: `float m = min(min(abs(d.y), abs(d.x)), abs(abs(d.z) - .72 + .5 * d.y * d.y));
-        col = uSkA * (.85 + .2 * skN(p * 40.0)); col = mix(col, uSkB, 1.0 - smoothstep(.012, .022, m)); rough = .8;`,
+        col = uSkA * (.85 + .2 * skN(p * 40.0));
+        float seamAA = max(fwidth(m) * .65, .005);
+        col = mix(col, uSkB, 1.0 - smoothstep(.017 - seamAA, .017 + seamAA, m)); rough = .8;`,
     melon: `float v = sin(atan(d.z, d.x) * 9.0 + skN(p * 3.0) * 4.0 + d.y * 2.0);
         col = mix(uSkA, uSkB, smoothstep(-.25, .25, v) * (.8 + .2 * skN(p * 9.0)));`,
     eye: `float t = d.z;
@@ -1596,10 +1643,14 @@ const BALL_PAT = {
         col = mix(col, vec3(1.0), cl * .75); rough = mix(.25, .85, max(land, cl)); emi += vec3(.02,.05,.12) * (1.0 - land);`,
     disco: `float lat = asin(clamp(d.y, -1.0, 1.0)), lon = atan(d.z, d.x);
         vec2 g = vec2((lon / 6.2832 + .5) * 40.0, (lat / 3.1416 + .5) * 20.0); vec2 f = fract(g);
-        float e = step(.07, f.x) * step(.07, f.y) * step(f.x, .93) * step(f.y, .93);
+        vec2 aa = max(fwidth(g), vec2(.001));
+        vec2 tile = smoothstep(vec2(.07) - aa, vec2(.07) + aa, f) *
+                    (1.0 - smoothstep(vec2(.93) - aa, vec2(.93) + aa, f));
+        float tileFade = smoothstep(.3, 1.2, max(aa.x, aa.y));
+        float e = mix(tile.x * tile.y, .7396, tileFade);
         float h = skH(vec3(floor(g), 3.0));
         col = mix(vec3(.05), uSkA * (.8 + .4 * h), e); metal = e; rough = mix(.9, .04, e);
-        emi += vec3(1.0) * step(.965, fract(h * 13.0 + uSkTime * .6)) * e * 2.0;`,
+        emi += vec3(1.0) * mix(step(.965, fract(h * 13.0 + uSkTime * .6)), .035, tileFade) * e * 2.0;`,
     sun: `float n = skF(p * 2.2 + vec3(0.0, uSkTime * .35, uSkTime * .1));
         col = mix(uSkA, uSkB, n * n); emi += mix(uSkA * .55, uSkC, pow(n, 3.0)) * 1.15; rough = .9; metal = 0.0;`,
 };
@@ -1618,9 +1669,29 @@ const BALLS = [
     { id: 'solar', name: 'SOLAR FLARE', rarity: 3, price: 5000, bpat: 'sun', color: 0xd83a00, b: 0xffa000, c: 0xffe27a, accent: [0xffb000] },
 ];
 const BALL_BY_ID = Object.fromEntries(BALLS.map(b => [b.id, b]));
+function classicBallMaterial() {
+    const m = new THREE.MeshPhysicalMaterial({ map: ballMap, bumpMap: ballBump,
+        bumpScale: .38, roughness: .34, metalness: 0, clearcoat: .55,
+        clearcoatRoughness: .22, envMapIntensity: 1.05 });
+    // Subpixel seams must become smooth shading, not sparkling normals.
+    m.onBeforeCompile = sh => {
+        sh.fragmentShader = sh.fragmentShader.replace('#include <normal_fragment_maps>',
+            `#ifdef USE_BUMPMAP
+              vec3 tcSmoothNormal = normal;
+            #endif
+            #include <normal_fragment_maps>
+            #ifdef USE_BUMPMAP
+              float tcFootprint = max(length(dFdx(vBumpMapUv)), length(dFdy(vBumpMapUv)));
+              normal = normalize(mix(tcSmoothNormal, normal,
+                  1.0 - smoothstep(0.003, 0.025, tcFootprint)));
+            #endif`);
+    };
+    m.customProgramCacheKey = () => 'classic-polished-v1';
+    return m;
+}
 function ballMaterial(b) {
     if (!b || b.classic)
-        return new THREE.MeshPhysicalMaterial({ map: ballMap, bumpMap: ballBump, bumpScale: 2.5, roughness: .42, metalness: 0, clearcoat: .35, clearcoatRoughness: .3 });
+        return classicBallMaterial();
     const m = new THREE.MeshPhysicalMaterial({ color: 0xffffff, metalness: b.metal ?? 0, roughness: b.rough ?? .4, clearcoat: b.clear ?? .4, clearcoatRoughness: .1, envMapIntensity: b.env ?? 1 });
     const code = b.pat ? SKIN_PAT[b.pat] : BALL_PAT[b.bpat], key = 'ball' + (b.pat || b.bpat);
     const u = {
@@ -1640,7 +1711,7 @@ function ballMaterial(b) {
 }
 function skinPaint(skin, team) {
     if (!skin || skin.team)
-        return new THREE.MeshPhysicalMaterial({ color: team ? 0xb00812 : 0x0b3fcf, metalness: .2, roughness: .36, clearcoat: .7, clearcoatRoughness: .05, envMapIntensity: .6 });
+        return new THREE.MeshPhysicalMaterial({ color: team ? 0xb00812 : 0x0b3fcf, metalness: .2, roughness: .32, clearcoat: .8, clearcoatRoughness: .12, envMapIntensity: .7 });
     const m = new THREE.MeshPhysicalMaterial({
         color: skin.pat ? 0xffffff : skin.color, metalness: skin.metal ?? .2, roughness: skin.rough ?? .36,
         clearcoat: skin.clear ?? .7, clearcoatRoughness: .05, envMapIntensity: skin.env ?? (skin.metal > .8 ? 1 : .6),
@@ -1776,7 +1847,6 @@ function buildCarMesh(team, name, human, skin = null, parent = scene) {
     g.traverse(o => { if (o.isMesh) { if (o.material === paint) o.userData.paint = true; else if (o.material === rimMat) o.userData.rim = true; } });
     if (name) {
         g.userData.nameTag = makeNameTag(name, TEAM_CSS[team]);
-        g.add(g.userData.nameTag);
     }
     parent.add(g);
     return { g, wheels, flames: [flameO, flameI] };
@@ -1788,7 +1858,7 @@ function createCar(team, name, human, skinOverride) {
     return {
         skinId: skin ? skin.id : 'stock',
         team, name, human, mesh: m.g, wheels: m.wheels, flames: m.flames,
-        pos: new V3(), vel: new V3(), q: new Q4(), yaw: 0, onGround: true, boost: 100, boostIdle: 0,
+        pos: new V3(), vel: new V3(), q: new Q4(), yaw: 0, steerSmooth: 0, onGround: true, boost: 100, boostIdle: 0,
         n: new V3(0, 1, 0), fwd: new V3(0, 0, 1), jumpN: new V3(0, 1, 0),
         input: { throttle: 0, steer: 0, pitch: 0, roll: 0, jump: false, boost: false, slide: false },
         prevJump: false, canFlip: false, flipping: false, flipT: 0, flipAxis: new V3(), angVel: new V3(),
@@ -1815,8 +1885,13 @@ function applyBallSkin() {
     ball.mesh.material = ballMaterial(BALL_BY_ID[STORE.ball]);
     old.dispose();
 }
-function clearCars() { for (const c of cars)
-    scene.remove(c.mesh); cars = []; }
+function clearCars() {
+    for (const c of cars) {
+        if (c.mesh.userData.nameTag) c.mesh.userData.nameTag.remove();
+        scene.remove(c.mesh);
+    }
+    cars = [];
+}
 const _a = new V3(), _b = new V3(), _c = new V3(), _d = new V3(), _q = new Q4(), _qi = new Q4(), _w = new V3();
 let simTime = 0;
 function forwardOf(c, out) { return out.set(0, 0, 1).applyQuaternion(c.q); }
@@ -1843,11 +1918,16 @@ function updateCar(c, inp, dt) {
     if (c.onGround) {
         const n = c.n;
         _lv.crossVectors(n, c.fwd).normalize();
-        let vf = c.vel.dot(c.fwd), vs = c.vel.dot(_lv);
-        const sp = Math.abs(vf);
-        const turn = lerp(3.3, 1.75, Math.min(sp / MAX_BOOST, 1)) * Math.min(1, sp / 6) * (inp.slide ? 1.45 : 1);
-        c.fwd.applyAxisAngle(n, inp.steer * turn * dt * (vf >= 0 ? 1 : -1));
+        const oldForwardSpeed = c.vel.dot(c.fwd);
+        const sp = Math.abs(oldForwardSpeed);
+        c.steerSmooth += (inp.steer - c.steerSmooth) * (1 - Math.exp(-14 * dt));
+        const speedTurn = .18 + .82 * Math.min(1, sp / 9);
+        const turn = lerp(3.9, 1.9, Math.min(sp / MAX_BOOST, 1)) * speedTurn * (inp.slide ? 1.35 : 1);
+        c.fwd.applyAxisAngle(n, c.steerSmooth * turn * dt * (oldForwardSpeed >= 0 ? 1 : -1));
         c.fwd.addScaledVector(n, -c.fwd.dot(n)).normalize();
+        // Resolve the existing momentum into the NEW steering direction.
+        _lv.crossVectors(n, c.fwd).normalize();
+        let vf = c.vel.dot(c.fwd), vs = c.vel.dot(_lv);
         const t = wantBoost ? 1 : inp.throttle;
         if (t > 0.05) {
             if (vf < -0.5)
@@ -1879,7 +1959,7 @@ function updateCar(c, inp, dt) {
         vs += _grav.dot(_lv) * dt;
         if (c.slideT > 0)
             c.slideT -= dt;
-        vs *= Math.exp(-(inp.slide || c.slideT > 0 ? 2.0 : 14) * dt);
+        vs *= Math.exp(-(inp.slide || c.slideT > 0 ? 2.2 : (sp < 18 ? 18 : 13)) * dt);
         c.vel.copy(c.fwd).multiplyScalar(vf).addScaledVector(_lv, vs);
         setOrientation(c);
         if (jumpEdge) {
@@ -2152,11 +2232,31 @@ function collideSeg(p, v, a, b, rad) {
     return 0;
 }
 const postA = new V3(), postB = new V3(), _bn = new V3(), _sbn = new V3();
+const _rollN = new V3(), _rollAxis = new V3(), _rollQ = new Q4();
+function updateRollingSpin(p, v, spin) {
+    // Rolling follows the actual contact plane, including the curved ramps.
+    // Keep angular momentum when the ball leaves the surface or bounces away.
+    if (arenaD(p.x, p.y, p.z) <= BR + .12) {
+        arenaN(p, _rollN);
+        if (v.dot(_rollN) <= .8) spin.crossVectors(_rollN, v).multiplyScalar(1 / BR);
+    }
+}
+function rotateBall(q, spin, dt) {
+    const speed = spin.length();
+    if (speed > 1e-8 && dt > 0) {
+        _rollAxis.copy(spin).divideScalar(speed);
+        q.premultiply(_rollQ.setFromAxisAngle(_rollAxis, speed * dt)).normalize();
+    }
+}
+function stepBallRotation(dt) {
+    updateRollingSpin(ball.pos, ball.vel, ball.spin);
+    rotateBall(ball.q, ball.spin, dt);
+}
 let lastOoh = -9, ballStuckFor = 0;
 function stepBall(dt) {
     const p = ball.pos, v = ball.vel;
     v.y -= G * dt;
-    v.multiplyScalar(Math.exp(-0.03 * dt));
+    v.multiplyScalar(Math.exp(-BALL_AIR_DRAG * dt));
     p.addScaledVector(v, dt);
     const d = arenaD(p.x, p.y, p.z);
     if (d < BR + .02) {
@@ -2165,13 +2265,13 @@ function stepBall(dt) {
             p.addScaledVector(_bn, BR - d);
         const vn = v.dot(_bn);
         if (vn < 0) {
-            v.addScaledVector(_bn, -vn * 1.6);
+            v.addScaledVector(_bn, -vn * (1 + BALL_RESTITUTION));
             if (-vn > 5)
                 sfx.bounce(-vn);
-            if (-vn * .6 < 1.2)
+            if (-vn < 2)
                 v.addScaledVector(_bn, -v.dot(_bn));
         }
-        const f = 1 - Math.exp(-.12 * dt), vn2 = v.dot(_bn);
+        const f = 1 - Math.exp(-BALL_SURFACE_DRAG * dt), vn2 = v.dot(_bn);
         v.x -= (v.x - _bn.x * vn2) * f;
         v.y -= (v.y - _bn.y * vn2) * f;
         v.z -= (v.z - _bn.z * vn2) * f;
@@ -2182,18 +2282,18 @@ function stepBall(dt) {
         for (const sx of [-1, 1]) {
             postA.set(sx * GW / 2, 0, s * HL);
             postB.set(sx * GW / 2, GH, s * HL);
-            hit = Math.max(hit, collideSeg(p, v, postA, postB, BR + .6));
+            hit = Math.max(hit, collideSeg(p, v, postA, postB, BR + GOAL_POST_R));
         }
         postA.set(-GW / 2, GH, s * HL);
         postB.set(GW / 2, GH, s * HL);
-        hit = Math.max(hit, collideSeg(p, v, postA, postB, BR + .6));
+        hit = Math.max(hit, collideSeg(p, v, postA, postB, BR + GOAL_POST_R));
         if (hit > 14 && state === 'play' && simTime - lastOoh > 2.5) {
             lastOoh = simTime;
             sfx.swell(.5);
         }
     }
     arenaN(p, _sbn);
-    if (d < BR + .65 && _sbn.y < .8 && p.y < BR + .9 && Math.hypot(v.x, v.z) < 1.3) {
+    if (arenaD(p.x, p.y, p.z) < BR + .65 && _sbn.y < .8 && p.y < BR + .9 && Math.hypot(v.x, v.z) < 1.3) {
         ballStuckFor += dt;
         if (ballStuckFor > 1.1) {
             p.addScaledVector(_sbn, .25);
@@ -2207,40 +2307,56 @@ function stepBall(dt) {
     const sp = v.length();
     if (sp > BALL_MAX)
         v.multiplyScalar(BALL_MAX / sp);
-    if (Math.abs(p.z) < HL - BR)
-        ignoredOwnGoal = false;
-    if (Math.abs(p.z) > HL + BR * .95 && state === 'play' && !ignoredOwnGoal && !netGuest()) {
+    // Update before snapshots/replay recording, independently of render frequency.
+    stepBallRotation(dt);
+    // Score according to which goal the ball crossed, not who touched it last.
+    // A defender knocking it into their own goal awards a point to the opponent.
+    if (Math.abs(p.z) > HL + BR * .95 && state === 'play' && !netGuest()) {
         const scoringTeam = p.z > 0 ? 0 : 1;
-        if (lastToucher && lastToucher.team !== scoringTeam)
-            ignoredOwnGoal = true;
-        else
-            onGoal(scoringTeam);
+        onGoal(scoringTeam);
     }
 }
 function simBall(p, v, h) {
     v.y -= G * h;
+    v.multiplyScalar(Math.exp(-BALL_AIR_DRAG * h));
     p.addScaledVector(v, h);
     const d = arenaD(p.x, p.y, p.z);
-    if (d < BR) {
+    if (d < BR + .02) {
         arenaN(p, _sbn);
-        p.addScaledVector(_sbn, BR - d);
+        if (d < BR) p.addScaledVector(_sbn, BR - d);
         const vn = v.dot(_sbn);
-        if (vn < 0)
-            v.addScaledVector(_sbn, -vn * 1.6);
+        if (vn < 0) {
+            v.addScaledVector(_sbn, -vn * (1 + BALL_RESTITUTION));
+            if (-vn < 2) v.addScaledVector(_sbn, -v.dot(_sbn));
+        }
+        const f = 1 - Math.exp(-BALL_SURFACE_DRAG * h), vn2 = v.dot(_sbn);
+        v.x -= (v.x - _sbn.x * vn2) * f;
+        v.y -= (v.y - _sbn.y * vn2) * f;
+        v.z -= (v.z - _sbn.z * vn2) * f;
     }
+    // Match the actual goal-frame rebounds when predicting bot intercepts and
+    // extrapolating a ball received over the network.
+    if (Math.abs(p.z) > HL - BR - 1) {
+        const s = Math.sign(p.z) || 1;
+        forecastPost(p, v, -GW / 2, 0, s * HL, -GW / 2, GH, s * HL);
+        forecastPost(p, v, GW / 2, 0, s * HL, GW / 2, GH, s * HL);
+        forecastPost(p, v, -GW / 2, GH, s * HL, GW / 2, GH, s * HL);
+    }
+    const speed = v.length();
+    if (speed > BALL_MAX) v.multiplyScalar(BALL_MAX / speed);
 }
 // Forecast an unobstructed shot using the same 120 Hz ball dynamics as gameplay.
 // Only car collisions are omitted: the question is whether this exact car hit
 // prevented a ball that would otherwise have crossed the goal line.
 const _gp = new V3(), _gv = new V3(), _gn = new V3();
 const GOAL_FORECAST_STEPS = Math.ceil(10 / STEP);
-const GOAL_FORECAST_DRAG = Math.exp(-.03 * STEP);
-const GOAL_FORECAST_FRICTION = 1 - Math.exp(-.12 * STEP);
+const GOAL_FORECAST_DRAG = Math.exp(-BALL_AIR_DRAG * STEP);
+const GOAL_FORECAST_FRICTION = 1 - Math.exp(-BALL_SURFACE_DRAG * STEP);
 function forecastPost(p, v, ax, ay, az, bx, by, bz) {
     const sx = bx - ax, sy = by - ay, sz = bz - az;
     const t = clamp(((p.x - ax) * sx + (p.y - ay) * sy + (p.z - az) * sz) / (sx * sx + sy * sy + sz * sz), 0, 1);
     const dx = p.x - ax - sx * t, dy = p.y - ay - sy * t, dz = p.z - az - sz * t;
-    const dist = Math.hypot(dx, dy, dz), radius = BR + .6;
+    const dist = Math.hypot(dx, dy, dz), radius = BR + GOAL_POST_R;
     if (dist >= radius || dist < 1e-6) return;
     const nx = dx / dist, ny = dy / dist, nz = dz / dist;
     const penetration = radius - dist;
@@ -2263,8 +2379,8 @@ function goalBound(pos, vel) {
             if (d < BR) _gp.addScaledVector(_gn, BR - d);
             const vn = _gv.dot(_gn);
             if (vn < 0) {
-                _gv.addScaledVector(_gn, -1.6 * vn);
-                if (-vn * .6 < 1.2) _gv.addScaledVector(_gn, -_gv.dot(_gn));
+                _gv.addScaledVector(_gn, -(1 + BALL_RESTITUTION) * vn);
+                if (-vn < 2) _gv.addScaledVector(_gn, -_gv.dot(_gn));
             }
             const vn2 = _gv.dot(_gn);
             _gv.x -= (_gv.x - _gn.x * vn2) * GOAL_FORECAST_FRICTION;
@@ -2304,25 +2420,26 @@ function carBall(c) {
     _d.applyQuaternion(c.q);
     ball.pos.addScaledVector(_d, BR - dist);
     _c.subVectors(ball.vel, c.vel);
-    const vn = _c.dot(_d), relSpeed = _c.length();
+    const vn = _c.dot(_d), impactSpeed = Math.max(0, -vn);
     if (vn < 0) {
-        ball.vel.addScaledVector(_d, -1.15 * vn);
+        ball.vel.addScaledVector(_d, (1 + .28) * impactSpeed);
         c.vel.addScaledVector(_d, vn * .08);
     }
-    const poweredHit = simTime - c.lastHit > .12;
+    const poweredHit = impactSpeed > 2 && simTime - c.lastHit > .12;
     if (poweredHit) {
         c.lastHit = simTime;
         _a.subVectors(ball.pos, c.pos);
         _a.y *= .35;
         _a.normalize();
-        ball.vel.addScaledVector(_a, Math.min(relSpeed, 100) * .15 + 2 + (c.flipping ? 14 : 0));
+        ball.vel.addScaledVector(_a, Math.min(impactSpeed, 100) * .2 + (c.flipping ? 14 : 1.2));
         const sp = ball.vel.length();
         if (sp > BALL_MAX) ball.vel.multiplyScalar(BALL_MAX / sp);
-        if (relSpeed > 8) {
-            sfx.hit(relSpeed);
-            if (relSpeed > 45) shake = Math.max(shake, .25);
+        if (impactSpeed > 8) {
+            sfx.hit(impactSpeed);
+            if (impactSpeed > 45) shake = Math.max(shake, .25);
         }
-        ball.spin.set(rand(-1, 1), rand(-1, 1), rand(-1, 1)).multiplyScalar(relSpeed * .08);
+        // Give a strike contact-driven spin, not a different random spin every hit.
+        ball.spin.copy(_d).cross(_c).multiplyScalar(.06);
     }
     // The online host is the single authority for statistics and goal credit.
     if (state !== 'play' || netGuest()) return;
@@ -2626,7 +2743,7 @@ function botThink(c, dt) {
     inp.throttle = D.throttle;
     if (Math.abs(ang) > 1.3 && speed > 18)
         inp.slide = true;
-    const turnRate = lerp(3.3, 1.75, Math.min(speed / MAX_BOOST, 1)), radius = speed / turnRate;
+    const turnRate = lerp(3.9, 1.9, Math.min(speed / MAX_BOOST, 1)) * (.18 + .82 * Math.min(1, speed / 9)), radius = speed / Math.max(.1, turnRate);
     if (Math.abs(ang) > .55 && dist < radius * 1.7) {
         inp.throttle = speed > 14 ? -.6 : .6;
         inp.slide = Math.abs(ang) > 1;
@@ -2714,7 +2831,9 @@ addEventListener('keydown', e => {
 });
 addEventListener('keyup', e => { keys[e.code] = false; });
 addEventListener('blur', () => { for (const k in keys)
-    keys[k] = false; mouseJump = false; });
+    keys[k] = false; mouseJump = false;
+    if (online.active && !online.isHost) online.sendInput([0,0,0,0,0,0,0],++netSeq);
+});
 $('gl').addEventListener('mousedown', e => { if (e.button === 2)
     mouseJump = true; });
 addEventListener('mouseup', e => { if (e.button === 2)
@@ -2723,6 +2842,7 @@ addEventListener('contextmenu', e => e.preventDefault());
 function readPlayer(c) {
     const k = keys, inp = c.input;
     const f = (k.KeyW || k.ArrowUp ? 1 : 0) - (k.KeyS || k.ArrowDown ? 1 : 0);
+    // Restore the game's original turn direction (previous update reversed it).
     const s = (k.KeyA || k.ArrowLeft ? 1 : 0) - (k.KeyD || k.ArrowRight ? 1 : 0);
     inp.throttle = f;
     inp.pitch = f;
@@ -2770,7 +2890,7 @@ function netAllReplayReady() {
     return !online.active || !online.isHost || !lastGoalReplay ||
         [...online.peers.keys()].every(seat => netReplayAcks.has(seat));
 }
-let lastTouch = [null, null], lastToucher = null, ignoredOwnGoal = false, shake = 0, touchInfo = null, exciteB = 0, exciteR = 0, tension = 0;
+let lastTouch = [null, null], lastToucher = null, shake = 0, touchInfo = null, exciteB = 0, exciteR = 0, tension = 0;
 const goalLog = [];
 function setupMatch(isAttract) {
     attract = isAttract;
@@ -2821,13 +2941,16 @@ function setupOnlineMatch() {
     $('clock').classList.remove('ot', 'last-minute');
     updateScoreHud(); resetKickoff();
 }
-const netHist = [], netSent = new Map();
-let netSeq = 0, netRtt = .12, netTouchAt = -9, netLastInput = '', netInputT = 0;
+const netHist = [], netSent = new Map(), netFrames = new online.SnapshotBuffer();
+let netSeq = 0, netRtt = .12, netTouchAt = -9, netTouchUntil = 0, netLastInput = '', netInputT = 0;
 const _ni = new V3(), _nv = new V3(), _nt = new V3(), _netErr = new V3(), _nbp = new V3(), _nbv = new V3();
 function netGuest() { return online.active && !online.isHost; }
 function netReset() {
     netHist.length = 0;
     netSent.clear();
+    netFrames.clear();
+    netTouchUntil = 0;
+    online.lastInput=null; online.jumpId=0;
     netSeq = 0;
     netRtt = .12;
     netTouchAt = -9;
@@ -2871,6 +2994,83 @@ function netHistAt(t) {
     }
     return null;
 }
+function netValidSnapshot(snap) {
+    const vec = (v,n) => Array.isArray(v) && v.length === n && v.every(Number.isFinite);
+    if (!snap || !['countdown','play','goal','replay','ended'].includes(snap.state) ||
+        !Number.isFinite(snap.ht) || !Number.isFinite(snap.timeLeft) ||
+        !Number.isFinite(snap.otTime) || !Number.isFinite(snap.countT) || !Number.isFinite(snap.goalT) ||
+        !Array.isArray(snap.scores) || snap.scores.length !== 2 ||
+        snap.scores.some(x=>!Number.isInteger(x) || x<0) ||
+        !Number.isInteger(snap.goalId) || !snap.ball || !vec(snap.ball.pos,3) ||
+        !vec(snap.ball.vel,3) || !vec(snap.ball.spin,3) ||
+        (snap.ball.q !== undefined && !vec(snap.ball.q,4)) ||
+        !Array.isArray(snap.cars) || snap.cars.length !== settings.mode * 2) return false;
+    const seats = new Set();
+    for (const c of snap.cars) {
+        if (!c || !Number.isInteger(c.seat) || c.seat < 0 || c.seat >= settings.mode * 2 || seats.has(c.seat) ||
+            !vec(c.pos,3) || !vec(c.vel,3) || !vec(c.q,4) || !vec(c.n,3) || !vec(c.fwd,3) ||
+            !vec(c.jumpN,3) || !Number.isFinite(c.boost) || !Number.isFinite(c.boostIdle) ||
+            !Number.isFinite(c.steer) || !c.stats ||
+            ['goals','shots','saves','touches'].some(k=>!Number.isFinite(c.stats[k]))) return false;
+        seats.add(c.seat);
+    }
+    return true;
+}
+const _sampleQ = new Q4();
+const _sampleSpin = new V3(), _spinEndQ = new Q4(), _spinCorrectionQ = new Q4();
+function netSampleWorld(dt) {
+    const sample = netFrames.sample(performance.now() / 1000, dt);
+    if (!sample) return;
+    const {a,b,alpha,reset} = sample;
+    const extra = sample.extra * (b.state === 'goal' && b.goalT > 2 ? .35 : 1);
+    for (const c of cars) {
+        if (c === player && state === 'play') continue;
+        const ca = a.cars.find(d=>d.seat === c.netSeat), cb = b.cars.find(d=>d.seat === c.netSeat);
+        if (!ca || !cb) continue;
+        c.pos.fromArray(ca.pos).lerp(_netPos.fromArray(cb.pos), alpha);
+        c.vel.fromArray(ca.vel).lerp(_netVel.fromArray(cb.vel), alpha);
+        c.pos.addScaledVector(c.vel, extra);
+        c.q.fromArray(ca.q).normalize().slerp(_sampleQ.fromArray(cb.q).normalize(), alpha);
+        if (c.nvo) c.nvo.set(0,0,0);
+        confineCar(c);
+    }
+    if (performance.now() / 1000 < netTouchUntil && !reset) return;
+    _nbp.fromArray(a.ball.pos).lerp(_netPos.fromArray(b.ball.pos), alpha);
+    _nbv.fromArray(a.ball.vel).lerp(_netVel.fromArray(b.ball.vel), alpha);
+    ball.spin.fromArray(a.ball.spin).lerp(_netVel.fromArray(b.ball.spin),alpha);
+    const hasRotation = a.ball.q && b.ball.q;
+    if (hasRotation) {
+        _netQ.fromArray(a.ball.q).normalize();
+        _sampleQ.fromArray(b.ball.q).normalize();
+        const span = (b.ht-a.ht) * (b.state === 'goal' && b.goalT > 2 ? .35 : 1);
+        _sampleSpin.fromArray(a.ball.spin).add(_netVel.fromArray(b.ball.spin)).multiplyScalar(.5);
+        if (span * _sampleSpin.length() > Math.PI) {
+            // Lost packets can hide more than half a turn. Use angular velocity
+            // to retain the direction, then reconcile to the received end pose.
+            _spinEndQ.copy(_netQ);
+            rotateBall(_spinEndQ, _sampleSpin, span);
+            _spinCorrectionQ.copy(_spinEndQ).invert().premultiply(_sampleQ);
+            rotateBall(_netQ, _sampleSpin, span * alpha);
+            _spinEndQ.identity().slerp(_spinCorrectionQ, alpha);
+            _netQ.premultiply(_spinEndQ).normalize();
+        } else _netQ.slerp(_sampleQ, alpha);
+    }
+    for (let t=extra; t>1e-5; t-=STEP) {
+        const h = Math.min(STEP,t);
+        simBall(_nbp,_nbv,h);
+        updateRollingSpin(_nbp,_nbv,ball.spin);
+        if (hasRotation) rotateBall(_netQ,ball.spin,h);
+    }
+    // Smooth the one transition back from a locally predicted strike. Ordinary
+    // snapshots are sampled directly and do not accumulate correction offsets.
+    if (netTouchUntil > 0 && !reset) netSetPos(ball,_nbp);
+    else ball.pos.copy(_nbp);
+    netTouchUntil = 0;
+    if (reset && ball.nvo) ball.nvo.set(0,0,0);
+    ball.vel.copy(_nbv);
+    // Position and orientation use the same sampled time; no second rotation lag.
+    if (hasRotation) ball.q.copy(_netQ);
+}
 function onlineSnapshot() {
     return {
         ht: performance.now() / 1000, replayFinal: !!(replay && replay.final),
@@ -2878,8 +3078,9 @@ function onlineSnapshot() {
         replaySpeed: replay ? (replay.t >= replay.tEnd - 3 ? .35 : 1) : 1,
         state, timeLeft, overtime, otTime, scores: [...scoreArr], countT, goalT,
         playerNames: cars.map(c=>({seat:c.netSeat,name:c.name,skin:c.skinId})),
-        scorerSeat: replayScorer >= 0 ? cars[replayScorer]?.netSeat ?? null : null, goalTeam: lastGoalTeam,
-        ball: { pos: ball.pos.toArray(), vel: ball.vel.toArray(), spin: ball.spin.toArray(), active: ball.active },
+        scorerSeat: replayScorer >= 0 ? cars[replayScorer]?.netSeat ?? null : null,
+        goalTeam: lastGoalTeam, ownGoalBy: lastOwnGoalBy,
+        ball: { pos: ball.pos.toArray(), vel: ball.vel.toArray(), spin: ball.spin.toArray(), q: ball.q.toArray(), active: ball.active },
         cars: cars.map(c => ({ seat: c.netSeat, pos: c.pos.toArray(), vel: c.vel.toArray(),
             q: c.q.toArray(), n: c.n.toArray(), fwd: c.fwd.toArray(),
             jumpN: c.jumpN.toArray(), canFlip: c.canFlip,
@@ -2891,8 +3092,13 @@ function onlineSnapshot() {
     };
 }
 function onlineApplySnapshot(snap) {
-    if (!online.active || online.isHost || !Array.isArray(snap.cars) || snap.cars.length !== settings.mode * 2) return;
+    if (!online.active || online.isHost || !netValidSnapshot(snap)) return;
     const previous = state;
+    const phaseChanged = previous !== snap.state || snap.goalId !== netSeenGoalId;
+    if (phaseChanged) {
+        netFrames.clear(); netHist.length=0; netTouchUntil=0; acc=0;
+        for (const o of [ball,...cars]) if (o.nvo) o.nvo.set(0,0,0);
+    }
     if (Array.isArray(snap.playerNames)) {
         for (const p of snap.playerNames) {
             if (!p || !Number.isInteger(p.seat) || !usernamePattern.test(p.name || '')) continue;
@@ -2900,15 +3106,9 @@ function onlineApplySnapshot(snap) {
             const c = cars.find(c => c.netSeat === p.seat);
             if (c && typeof p.skin === 'string') repaintCar(c, p.skin);
             if (!c || c.name === p.name) continue;
-            const oldTag = c.mesh.userData.nameTag;
-            if (oldTag) {
-                c.mesh.remove(oldTag);
-                oldTag.material.map.dispose();
-                oldTag.material.dispose();
-            }
             c.name = p.name;
-            c.mesh.userData.nameTag = makeNameTag(p.name,TEAM_CSS[c.team]);
-            c.mesh.add(c.mesh.userData.nameTag);
+            const nameTag = c.mesh.userData.nameTag;
+            if (nameTag) nameTag.textContent = p.name;
         }
     }
     timeLeft = snap.timeLeft; overtime = !!snap.overtime; otTime = snap.otTime;
@@ -2921,13 +3121,15 @@ function onlineApplySnapshot(snap) {
     if (Number.isInteger(snap.goalId) && snap.goalId > netSeenGoalId) {
         netSeenGoalId = snap.goalId;
         lastGoalTeam = snap.goalTeam;
+        lastOwnGoalBy = typeof snap.ownGoalBy === 'string' ? snap.ownGoalBy : null;
         replayScorer = scorerIdx;
         if (Array.isArray(snap.goalPos) && snap.goalPos.length === 3)
             showGoalBurst(snap.goalTeam, _nt.fromArray(snap.goalPos));
         if (snap.state === 'goal' || snap.state === 'replay') {
             showCenter('GOAL!', 2.4, TEAM_CSS[snap.goalTeam]);
             const sc = cars.find(c => c.netSeat === snap.scorerSeat);
-            showSub(`${sc ? sc.name : TEAM_NAME[snap.goalTeam]} SCORED!`, 2.4);
+            showSub(lastOwnGoalBy ? `OWN GOAL BY ${lastOwnGoalBy}` :
+                `${sc ? sc.name : TEAM_NAME[snap.goalTeam]} SCORED!`, 2.4);
         }
     }
     if (snap.state === 'replay') {
@@ -2961,68 +3163,75 @@ function onlineApplySnapshot(snap) {
         const sample = performance.now() / 1000 - netSent.get(own.ack) - clamp(+own.ackAge || 0, 0, 1);
         if (sample > 0 && sample < 2) netRtt += (sample - netRtt) * .15;
     }
-    const lead = live ? clamp(netRtt / 2, 0, .3) * (snap.state === 'goal' && snap.goalT > 2 ? .35 : 1) : 0;
-    if (snap.ball && Array.isArray(snap.ball.pos) && Array.isArray(snap.ball.vel)) {
+    const lead = live ? clamp(netRtt / 2, 0, .12) * (snap.state === 'goal' && snap.goalT > 2 ? .35 : 1) : 0;
+    ball.active = !!snap.ball.active;
+    ball.mesh.visible = ball.active;
+    if (live) netFrames.push(snap,performance.now()/1000);
+    else netFrames.clear();
+    if (!live || phaseChanged) {
+        ball.pos.fromArray(snap.ball.pos); ball.vel.fromArray(snap.ball.vel);
         ball.spin.fromArray(snap.ball.spin);
-        ball.active = !!snap.ball.active;
-        ball.mesh.visible = ball.active;
-        const touching = snap.state === 'play' && performance.now() / 1000 - netTouchAt < netRtt + .12;
-        if (!touching) {
-            _nbp.fromArray(snap.ball.pos);
-            _nbv.fromArray(snap.ball.vel);
-            for (let t = lead; t > 1e-4; t -= 1 / 120)
-                simBall(_nbp, _nbv, Math.min(1 / 120, t));
-            if (live) netSetPos(ball, _nbp);
-            else {
-                ball.pos.copy(_nbp);
-                if (ball.nvo) ball.nvo.set(0, 0, 0);
-            }
-            ball.vel.copy(_nbv);
-        }
+        if (snap.ball.q) ball.q.fromArray(snap.ball.q).normalize();
+        if (ball.nvo) ball.nvo.set(0,0,0);
     }
     for (const data of snap.cars) {
         const c = cars.find(x => x.netSeat === data.seat);
         if (!c || !Array.isArray(data.pos) || !Array.isArray(data.vel) || !Array.isArray(data.q)) continue;
-        _netPos.fromArray(data.pos); _netVel.fromArray(data.vel); _netQ.fromArray(data.q);
+        _netPos.fromArray(data.pos); _netVel.fromArray(data.vel); _netQ.fromArray(data.q).normalize();
         const predicted = data.seat === online.seat && state === 'play' && snap.state === 'play';
+        let hardCorrected = false;
         if (predicted) {
             let past = null;
             if (Number.isInteger(data.ack) && netSent.has(data.ack))
                 past = netHistAt(netSent.get(data.ack) + clamp(+data.ackAge || 0, 0, .5));
+            // With no matching history, compare to a short estimate of the
+            // current host position rather than pulling the car into the past.
+            if (!past) _netPos.addScaledVector(_netVel,lead);
             const refP = past ? past.p : c.pos, refV = past ? past.v : c.vel;
             _netErr.copy(_netPos).sub(refP);
             const err = _netErr.length();
             if (err > 15) {
+                hardCorrected = true;
                 c.pos.copy(_netPos); c.vel.copy(_netVel); c.q.copy(_netQ);
+                if (past) c.pos.addScaledVector(c.vel,lead);
                 if (c.nvo) c.nvo.set(0, 0, 0);
                 netHist.length = 0;
             } else if (err > .5) {
-                const k = past ? .3 : .1;
-                netSetPos(c, _nt.copy(c.pos).addScaledVector(_netErr, k));
-                c.vel.addScaledVector(_nv.copy(_netVel).sub(refV), k);
+                const k = past ? .28 : .1;
+                _netErr.multiplyScalar(k);
+                _nv.copy(_netVel).sub(refV).multiplyScalar(k);
+                netSetPos(c, _nt.copy(c.pos).add(_netErr));
+                c.vel.add(_nv);
+                // Rebase history too, so consecutive acknowledgements cannot
+                // apply the same positional correction over and over.
+                for (const h of netHist) { h.p.add(_netErr); h.v.add(_nv); }
             }
-        } else if (live) {
-            netSetPos(c, _nt.copy(_netPos).addScaledVector(_netVel, lead));
-            c.vel.copy(_netVel); c.q.copy(_netQ);
+        } else if (live && !phaseChanged) {
+            // Remote cars are interpolated together with the ball in update().
         } else {
             c.pos.copy(_netPos); c.vel.copy(_netVel); c.q.copy(_netQ);
             if (c.nvo) c.nvo.set(0, 0, 0);
         }
         if (Array.isArray(data.n)) {
-            if (predicted) c.n.lerp(_netPos.fromArray(data.n), .35).normalize();
+            if (predicted && !hardCorrected) c.n.lerp(_netPos.fromArray(data.n), .35).normalize();
             else c.n.fromArray(data.n);
         }
         if (Array.isArray(data.fwd)) {
-            if (predicted) c.fwd.lerp(_netPos.fromArray(data.fwd), .35).normalize();
+            if (predicted && !hardCorrected) c.fwd.lerp(_netPos.fromArray(data.fwd), .35).normalize();
             else c.fwd.fromArray(data.fwd);
             c.yaw = Math.atan2(c.fwd.x, c.fwd.z);
         }
         if (Array.isArray(data.jumpN)) c.jumpN.fromArray(data.jumpN);
-        if (!predicted) c.canFlip = !!data.canFlip;
-        c.boost = data.boost; c.boostIdle = data.boostIdle;
-        c.boosting = !!data.boosting; c.onGround = !!data.onGround;
-        c.supersonic = !!data.supersonic;
-        if (!predicted) c.input.steer = data.steer;
+        if (!predicted || hardCorrected) c.canFlip = !!data.canFlip;
+        if (!predicted || hardCorrected) {
+            c.boost = data.boost; c.boostIdle = data.boostIdle;
+            c.boosting = !!data.boosting; c.onGround = !!data.onGround;
+            c.supersonic = !!data.supersonic;
+        } else {
+            // A delayed grounded flag must not cancel a just-predicted jump.
+            c.boost = clamp(lerp(c.boost,data.boost,.25),0,100);
+        }
+        if (!predicted) { c.input.steer = data.steer; c.steerSmooth = lerp(c.steerSmooth,data.steer,.45); }
         c.stats = data.stats;
     }
     state = snap.state === 'replay' ? 'goal' : snap.state;
@@ -3050,6 +3259,7 @@ function resetKickoff() {
     ball.pos.set(0, BR, 0);
     ball.vel.set(0, 0, 0);
     ball.spin.set(0, 0, 0);
+    ball.q.identity();
     ballStuckFor = 0;
     ball.active = true;
     ball.mesh.visible = true;
@@ -3066,7 +3276,7 @@ function resetKickoff() {
     }
     lastTouch = [null, null];
     lastToucher = null;
-    ignoredOwnGoal = false;
+    lastOwnGoalBy = null;
     if (rec) {
         rec.head = 0;
         rec.count = 0;
@@ -3111,6 +3321,7 @@ function placeCar(c, x, z) {
     c.prevJump = true;
     c.lastBallContact = -9;
     c.angVel.set(0, 0, 0);
+    c.steerSmooth = 0;
 }
 function showGoalBurst(team, pos) {
     if (team !== 0 && team !== 1) return;
@@ -3127,7 +3338,12 @@ function onGoal(team) {
     scoreArr[team]++;
     updateScoreHud();
     lastGoalTeam = team;
-    const scorer = lastTouch[team];
+    const ownGoalBy = lastToucher && lastToucher.team !== team ? lastToucher : null;
+    lastOwnGoalBy = ownGoalBy ? ownGoalBy.name : null;
+    // Credit the last attacking player, if known. In 1v1, the only opponent
+    // receives the goal stat even if they never touched the own-goal play.
+    const attackers = cars.filter(c => c.team === team);
+    const scorer = lastTouch[team] || (ownGoalBy && attackers.length === 1 ? attackers[0] : null);
     replayScorer = scorer ? cars.indexOf(scorer) : -1;
     saveLastGoalReplay();
     if (online.active && online.isHost) {
@@ -3157,14 +3373,17 @@ function onGoal(team) {
     matchOverAfterGoal = overtime || timeLeft <= 0;
     if (!attract) {
         sfx.goal(!player || team === player.team);
-        const own = !scorer && lastToucher;
         showCenter('GOAL!', 2.4, TEAM_CSS[team]);
-        showSub(scorer ? `${scorer.name} SCORED${scorer.human ? '!' : ''}` : own ? `OWN GOAL BY ${lastToucher.name}` : `${TEAM_NAME[team]} SCORED!`, 2.4);
-        feed(`<span style="color:${TEAM_CSS[team]}">${scorer ? scorer.name : TEAM_NAME[team]}</span> scored`);
+        showSub(lastOwnGoalBy ? `OWN GOAL BY ${lastOwnGoalBy}` :
+            scorer ? `${scorer.name} SCORED${scorer.human ? '!' : ''}` : `${TEAM_NAME[team]} SCORED!`, 2.4);
+        feed(lastOwnGoalBy
+            ? `<span style="color:${TEAM_CSS[team]}">${TEAM_NAME[team]}</span> goal (own goal by ${lastOwnGoalBy})`
+            : `<span style="color:${TEAM_CSS[team]}">${scorer ? scorer.name : TEAM_NAME[team]}</span> scored`);
     }
 }
 function endMatch() {
     state = 'ended';
+    if (online.active && !online.finished) online.finishMatch(online.isHost ? onlineSnapshot() : null);
     const win = scoreArr[0] > scoreArr[1] ? 0 : 1, r = $('result');
     r.textContent = win === (player ? player.team : 0) ? 'VICTORY' : 'DEFEAT';
     r.style.color = win === 0 ? TEAM_CSS[0] : TEAM_CSS[1];
@@ -3290,8 +3509,9 @@ async function searchRealPlayer(checkFirst = false) {
     online.onInput = p => {
         if (online.isHost && Number.isInteger(p.seat) && p.seat >= 0 && p.seat < settings.mode * 2 && p.seat !== online.seat) {
             const prev = remoteInputs.get(p.seat);
-            if (prev && Number.isInteger(prev.seq) && Number.isInteger(p.seq) && p.seq < prev.seq) return;
-            remoteInputs.set(p.seat, { controls: p.controls, at: Date.now(), seq: p.seq, rt: performance.now() });
+            if (prev && Number.isInteger(prev.seq) && Number.isInteger(p.seq) && p.seq <= prev.seq) return;
+            remoteInputs.set(p.seat, { controls: p.controls, at: Date.now(), seq: p.seq, rt: performance.now(),
+                jumpQueued: !!p.jumpPressed || !!(prev && prev.jumpQueued) || (!!p.controls[4] && !(prev && prev.controls[4])) });
         }
     };
     online.onSnapshot = onlineApplySnapshot;
@@ -3307,7 +3527,7 @@ async function searchRealPlayer(checkFirst = false) {
     };
     online.onSkin = (seat, id) => { const c = cars.find(c => c.netSeat === seat); if (c) repaintCar(c, id); };
     online.onLost = (message, reason) => {
-        if (!current()) return;
+        if (!current() || state === 'ended' || online.finished) return;
         const checkFailed = checking;
         toMenu(true);
         $('choosePlay').classList.add('hidden');
@@ -3347,7 +3567,7 @@ function recInit() { const stride = 12 + cars.length * 11, cap = 600; rec = { st
 function recFrame() {
     if (!rec || attract)
         return;
-    const b = rec.buf, o = rec.head * rec.stride, bq = ball.mesh.quaternion;
+    const b = rec.buf, o = rec.head * rec.stride, bq = ball.q;
     b[o] = simTime;
     b[o + 1] = ball.pos.x;
     b[o + 2] = ball.pos.y;
@@ -3427,7 +3647,8 @@ function startReplay(final = false, sharedSource = null, replayId = netGoalId) {
     const sc = replayScorer >= 0 ? cars[replayScorer] : null;
     $('replayBadge').style.background = lastGoalTeam ? 'linear-gradient(180deg,#ff5050,#c4161c)' : 'linear-gradient(180deg,#4b97ff,#1c5fd6)';
     $('replayBadge').innerHTML = '<i></i>' + (final ? 'FINAL REPLAY' : 'REPLAY');
-    $('replayWho').textContent = `${sc ? sc.name : TEAM_NAME[lastGoalTeam]} SCORED!`;
+    $('replayWho').textContent = lastOwnGoalBy ? `OWN GOAL BY ${lastOwnGoalBy}` :
+        `${sc ? sc.name : TEAM_NAME[lastGoalTeam]} SCORED!`;
     $('hud').classList.add('replaying');
     $('center').classList.remove('show');
     $('sub').classList.remove('show');
@@ -3444,7 +3665,7 @@ function replayApply() {
     ball.pos.set(lerp(b[i0 + 1], b[i1 + 1], a), lerp(b[i0 + 2], b[i1 + 2], a), lerp(b[i0 + 3], b[i1 + 3], a));
     _rq0.set(b[i0 + 4], b[i0 + 5], b[i0 + 6], b[i0 + 7]);
     _rq1.set(b[i1 + 4], b[i1 + 5], b[i1 + 6], b[i1 + 7]);
-    ball.mesh.quaternion.copy(_rq0).slerp(_rq1, a);
+    ball.q.copy(_rq0).normalize().slerp(_rq1.normalize(), a);
     ball.vel.set(lerp(b[i0 + 8], b[i1 + 8], a), lerp(b[i0 + 9], b[i1 + 9], a), lerp(b[i0 + 10], b[i1 + 10], a));
     let k = 12;
     for (const c of cars) {
@@ -3966,8 +4187,8 @@ let orbitA = 0, debugCam = null, camDirX = 0, camDirZ = 1, camSnap = true, camFl
 const _cn = new V3();
 function update(dt) {
     clockTime += dt;
+    if (state === 'ended') return;
     if (online.active && !online.isHost) {
-        simTime += dt;
         if (player) {
             readPlayer(player);
             if (paused) clearInput(player.input);
@@ -3980,7 +4201,7 @@ function update(dt) {
                     netSent.delete(netSent.keys().next().value);
                 online.sendInput(ser, netSeq);
                 netLastInput = key;
-                onlineInputTimer = 0;
+                onlineInputTimer %= 1 / 30;
             }
         }
         if (state === 'replay')
@@ -3990,23 +4211,27 @@ function update(dt) {
                 if (state === 'goal') goalT -= dt;
                 const scale = state === 'goal' && goalT > 2.0 ? .35 : 1;
                 acc = Math.min(acc + dt * scale, .1);
+                netSampleWorld(dt);
                 while (acc >= STEP) {
                     acc -= STEP;
-                    for (const c of cars) {
-                        if (c === player && state === 'play') {
-                            updateCar(c, c.input, STEP);
-                        } else
-                            c.pos.addScaledVector(c.vel, STEP);
-                        confineCar(c);
+                    simTime += STEP;
+                    if (player && state === 'play') {
+                        updateCar(player,player.input,STEP);
+                        confineCar(player);
                     }
-                    if (ball.active) {
-                        stepBall(STEP);
-                        for (const c of cars)
-                            carBall(c);
+                    const now=performance.now()/1000;
+                    if (ball.active && now < netTouchUntil) stepBall(STEP);
+                    if (player && ball.active && state === 'play') {
+                        const before=player.lastBallContact;
+                        carBall(player);
+                        // Predict only a fresh local strike, for a bounded time.
+                        // Merely being near the ball never hides host updates.
+                        if (player.lastBallContact !== before && simTime-before > .04 && now-netTouchAt > .25) {
+                            netTouchAt=now;
+                            netTouchUntil=now+clamp(netRtt*.7+.05,.08,.18);
+                        }
                     }
                 }
-                if (player && ball.active && state === 'play' && player.pos.distanceToSquared(ball.pos) < (BR + 4.5) ** 2)
-                    netTouchAt = performance.now() / 1000;
             } else acc = 0;
             if (player && state === 'play')
                 netRecordSelf();
@@ -4094,8 +4319,10 @@ function update(dt) {
                     if (paused) clearInput(c.input);
                 } else {
                     const remote = remoteInputs.get(c.netSeat);
-                    if (remote && Date.now() - remote.at < 1500) useRemoteInput(c.input, remote.controls);
-                    else clearInput(c.input);
+                    if (remote && Date.now() - remote.at < 350) {
+                        useRemoteInput(c.input, remote.controls);
+                        if (remote.jumpQueued) c.input.jump=true;
+                    } else { clearInput(c.input); if (remote) remote.jumpQueued=false; }
                 }
             } else if (c.human) readPlayer(c);
             else botThink(c, dt);
@@ -4105,8 +4332,11 @@ function update(dt) {
         while (acc >= STEP) {
             acc -= STEP;
             simTime += STEP;
-            for (const c of cars)
+            for (const c of cars) {
                 updateCar(c, c.input, STEP);
+                const remote=online.active && remoteInputs.get(c.netSeat);
+                if (remote) remote.jumpQueued=false;
+            }
             for (let it = 0; it < 3; it++) {
                 carCar();
                 for (const c of cars)
@@ -4237,13 +4467,12 @@ const POST = (() => {
       c = mix(c, c * c * (3.0 - 2.0 * c), 0.16);
       c += vec3(-0.012, 0.0, 0.018) * (1.0 - l) * (1.0 - l) + vec3(0.014, 0.004, -0.012) * l * l;
       c = mix(vec3(dot(c, vec3(0.299, 0.587, 0.114))), c, 1.07);
-      float n = fract(52.9829189 * fract(dot(gl_FragCoord.xy + fract(uTime * 7.31) * 61.0, vec2(0.06711056, 0.00583715))));
-      return c + (n - 0.5) * (0.0085 - 0.004 * l);
+      float n = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+      return c + (n - 0.5) / 255.0;
     }
     void main(){
       vec2 cc = vUv - 0.5;
       float r2 = dot(cc, cc);
-    #ifdef LOW
       vec2 t = uTexel;
       vec3 col = texture(tScene, vUv).rgb;
       vec3 nw = texture(tScene, vUv + vec2(-t.x, -t.y)).rgb, ne = texture(tScene, vUv + vec2(t.x, -t.y)).rgb, sw = texture(tScene, vUv + vec2(-t.x, t.y)).rgb, se = texture(tScene, vUv + t).rgb;
@@ -4258,19 +4487,6 @@ const POST = (() => {
         float lb = lum(rb);
         col = (lb < lmin || lb > lmax) ? ra : rb;
       }
-      else col = max(col + (col - (nw + ne + sw + se) * 0.25) * (0.4 / (1.0 + dot(col, vec3(0.2126, 0.7152, 0.0722)))), 0.0);
-    #else
-      vec3 raw = texture(tScene, vUv).rgb;
-      vec3 lo = (texture(tScene, vUv + vec2(uTexel.x, 0.0)).rgb + texture(tScene, vUv - vec2(uTexel.x, 0.0)).rgb + texture(tScene, vUv + vec2(0.0, uTexel.y)).rgb + texture(tScene, vUv - vec2(0.0, uTexel.y)).rgb) * 0.25;
-      vec3 col = max(raw + (raw - lo) * (0.55 / (1.0 + dot(raw, vec3(0.2126, 0.7152, 0.0722)))), 0.0);
-      vec2 co = cc * r2 * (0.004 + 0.012 * uSpeed);
-      col.r += texture(tScene, vUv + co).r - raw.r;
-      col.b += texture(tScene, vUv - co).b - raw.b;
-      if (uSpeed > 0.002) {
-        vec2 dir = cc * (uSpeed * 0.036 * smoothstep(0.03, 0.32, r2));
-        col = (col + textureLod(tScene, vUv - dir * 0.33, 0.0).rgb + textureLod(tScene, vUv - dir * 0.66, 0.0).rgb + textureLod(tScene, vUv - dir, 0.0).rgb) * 0.25;
-      }
-    #endif
     #ifdef USE_AO
       col *= mix(1.0, texture(tAO, vUv).r, 0.9);
     #endif
@@ -4303,7 +4519,7 @@ const POST = (() => {
         W = w;
         H = h;
         tier = t;
-        sceneRT = new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, generateMipmaps: false, samples: t >= 2 ? 4 : 0 });
+        sceneRT = new THREE.WebGLRenderTarget(w, h, { type: THREE.HalfFloatType, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, generateMipmaps: false, samples: Math.min(renderer.capabilities.maxSamples || 0, t >= 2 ? 4 : t >= 1 ? 2 : 0) });
         if (t >= 3)
             sceneRT.depthTexture = new THREE.DepthTexture(w, h);
         else if (t === 2)
@@ -4427,7 +4643,32 @@ const POST = (() => {
     }
     return { st, info, warm, render };
 })();
-const _cf = new V3(), _rq = new Q4(), _rax = new V3();
+// Project each car's world position onto the unfiltered HTML HUD every frame.
+const _tagScreen = new V3();
+function updateNameTags() {
+    const show = !attract && !!player && state !== 'ended' && !paused &&
+        !$('hud').classList.contains('hidden');
+    if (show) camera.updateMatrixWorld();
+    for (const c of cars) {
+        const el = c.mesh.userData.nameTag;
+        if (!el) continue;
+        if (!show) { el.style.display = 'none'; continue; }
+        _tagScreen.copy(c.mesh.position);
+        // World-up positioning keeps the label above the vehicle during flips.
+        _tagScreen.y += 3.5;
+        const distance = camera.position.distanceTo(_tagScreen);
+        _tagScreen.project(camera);
+        const visible = distance < 170 && _tagScreen.z >= -1 && _tagScreen.z <= 1 &&
+            Math.abs(_tagScreen.x) < 1.12 && Math.abs(_tagScreen.y) < 1.12;
+        if (!visible) { el.style.display = 'none'; continue; }
+        const x = Math.round((_tagScreen.x * .5 + .5) * innerWidth);
+        const y = Math.round((1 - _tagScreen.y) * .5 * innerHeight);
+        el.style.transform = `translate3d(${x}px,${y}px,0) translate(-50%,-100%)`;
+        el.style.fontSize = `${Math.round(clamp(18 - distance * .06, 13, 17))}px`;
+        el.style.display = 'block';
+    }
+}
+const _cf = new V3();
 function render(dt) {
     for (const c of cars) {
         c.mesh.position.copy(c.pos);
@@ -4438,7 +4679,7 @@ function render(dt) {
         for (const w of c.wheels) {
             w.w.rotation.x = c.wheelRot;
             if (w.front)
-                w.pivot.rotation.y = c.onGround ? c.input.steer * .42 : 0;
+                w.pivot.rotation.y = c.onGround ? c.steerSmooth * .42 : 0;
         }
         for (const f of c.flames) {
             f.visible = c.boosting;
@@ -4455,24 +4696,9 @@ function render(dt) {
     }
     ball.mesh.position.copy(ball.pos);
     if (ball.nvo && state !== 'replay') ball.mesh.position.add(ball.nvo);
-    if (ball.active) {
-        const sp = Math.hypot(ball.vel.x, ball.vel.z);
-        if (state !== 'replay') {
-            if (ball.pos.y <= BR + .05 && sp > .1) {
-                _rax.set(ball.vel.z, 0, -ball.vel.x).divideScalar(sp);
-                ball.mesh.quaternion.premultiply(_rq.setFromAxisAngle(_rax, sp * dt / BR));
-            }
-            else {
-                const w = ball.spin.length();
-                if (w > 1e-3) {
-                    _rax.copy(ball.spin).divideScalar(w);
-                    ball.mesh.quaternion.premultiply(_rq.setFromAxisAngle(_rax, w * dt));
-                }
-            }
-        }
-    }
+    ball.mesh.quaternion.copy(ball.q);
     blob.visible = ball.active;
-    blob.position.set(ball.pos.x, .05, ball.pos.z);
+    blob.position.set(ball.mesh.position.x, .05, ball.mesh.position.z);
     const bs = 1 + ball.pos.y / 30;
     blob.scale.set(bs, bs, 1);
     blob.material.opacity = clamp(1 - ball.pos.y / 45, .15, 1);
@@ -4517,11 +4743,11 @@ function render(dt) {
         replayCam(dt);
     }
     else {
-        const c = player;
+        const c = player, cp = c.mesh.position, bp = ball.mesh.position;
         const bcOn = ballCam && ball.active && ball.mesh.visible;
         let canTrackHeading, bcRate = 7, bcDist = 0;
         if (bcOn) {
-            _a.set(ball.pos.x - c.pos.x, 0, ball.pos.z - c.pos.z);
+            _a.set(bp.x - cp.x, 0, bp.z - cp.z);
             bcDist = Math.sqrt(_a.lengthSq());
             canTrackHeading = bcDist > 4;
             bcRate = lerp(1.2, 3.4, clamp((bcDist - 6) / 40, 0, 1));
@@ -4552,14 +4778,14 @@ function render(dt) {
         const distance = 13 + 5 * camFlipBlend;
         const height = 4.8 + 2 * camFlipBlend;
         const lookAhead = 6 - 2 * camFlipBlend;
-        camPosT.set(c.pos.x - camDirX * distance, c.pos.y + height, c.pos.z - camDirZ * distance);
-        camLookT.set(c.pos.x + camDirX * lookAhead, c.pos.y + 1.6 + .7 * camFlipBlend, c.pos.z + camDirZ * lookAhead);
+        camPosT.set(cp.x - camDirX * distance, cp.y + height, cp.z - camDirZ * distance);
+        camLookT.set(cp.x + camDirX * lookAhead, cp.y + 1.6 + .7 * camFlipBlend, cp.z + camDirZ * lookAhead);
         if (bcOn) {
-            const hd = Math.max(4, Math.hypot(ball.pos.x - camPosT.x, ball.pos.z - camPosT.z));
-            const want = bcDist > 4 ? clamp(Math.atan2(ball.pos.y - camPosT.y, hd), -.22, .2) : bcPitch;
+            const hd = Math.max(4, Math.hypot(bp.x - camPosT.x, bp.z - camPosT.z));
+            const want = bcDist > 4 ? clamp(Math.atan2(bp.y - camPosT.y, hd), -.22, .2) : bcPitch;
             bcPitch = camSnap ? want : bcPitch + (want - bcPitch) * (1 - Math.exp(-3 * dt));
             const reach = distance + lookAhead;
-            camLookT.set(c.pos.x + camDirX * lookAhead, camPosT.y + Math.tan(bcPitch) * reach, c.pos.z + camDirZ * lookAhead);
+            camLookT.set(cp.x + camDirX * lookAhead, camPosT.y + Math.tan(bcPitch) * reach, cp.z + camDirZ * lookAhead);
         }
         else
             bcPitch = Math.atan2(camLookT.y - camPosT.y, distance + lookAhead);
@@ -4580,7 +4806,7 @@ function render(dt) {
             camLook.lerp(camLookT, 1 - Math.exp(-14 * dt));
             camera.fov = lerp(camera.fov, Math.max(c.supersonic ? 86 : c.boosting ? 81 : 76, 76 + 3 * camFlipBlend), 1 - Math.exp(-4 * dt));
         }
-        updateShadow((c.pos.x + camLook.x) / 2, (c.pos.z + camLook.z) / 2, 110);
+        updateShadow((cp.x + camLook.x) / 2, (cp.z + camLook.z) / 2, 110);
     }
     if (state !== 'replay' || !replay)
         camSnap = false;
@@ -4600,6 +4826,7 @@ function render(dt) {
         camera.position.z += rand(-s, s);
     }
     camera.lookAt(camLook);
+    updateNameTags();
     if (!attract && player) {
         $('clock').textContent = overtime ? '+' + fmt(otTime) : fmt(timeLeft);
         $('clock').classList.toggle('last-minute', !overtime && timeLeft <= 60);
@@ -4619,6 +4846,10 @@ const bctx = $('boostC').getContext('2d');
 let lastBoostKey = '';
 function drawBoost(b, idle, boosting) {
     const v = Math.round(b), label = boosting || v >= 100 ? 'BOOST' : idle < REGEN_DELAY ? `RECHARGE ${Math.ceil(REGEN_DELAY - idle)}s` : 'RECHARGING';
+    // Boost reserve: blue -> yellow -> orange -> red as the tank drains.
+    const colors = v >= 75 ? ['#9fdcff', '#2f6bff'] :
+        v >= 50 ? ['#fff3a3', '#ffd54a'] :
+        v >= 25 ? ['#ffd0a0', '#ff8a24'] : ['#ffb0b0', '#ff3b3b'];
     const key = v + label;
     if (key === lastBoostKey)
         return;
@@ -4638,20 +4869,20 @@ function drawBoost(b, idle, boosting) {
     g.stroke();
     if (v > 0) {
         const gr = g.createLinearGradient(0, W, W, 0);
-        gr.addColorStop(0, '#9fdcff');
-        gr.addColorStop(1, '#2f6bff');
+        gr.addColorStop(0, colors[0]);
+        gr.addColorStop(1, colors[1]);
         g.beginPath();
         g.arc(cx, cx, r, a0, a0 + (a1 - a0) * v / 100);
         g.strokeStyle = gr;
         g.stroke();
     }
-    g.fillStyle = '#fff';
+    g.fillStyle = v === 0 ? colors[1] : '#fff';
     g.font = 'italic 900 96px Segoe UI, Arial';
     g.textAlign = 'center';
     g.textBaseline = 'middle';
     g.fillText(v, cx, cx - 6);
     g.font = `800 ${label.length > 6 ? 22 : 26}px Segoe UI, Arial`;
-    g.fillStyle = label === 'BOOST' ? '#9cc8ff' : '#ffffff';
+    g.fillStyle = colors[0];
     g.fillText(label, cx, cx + 66);
 }
 let perfT = 0, perfN = 0, perfSum = 0, prChangedAt = 0, prNext = 0, perfHoldUntil = 0, prChanges = 0, gfxChangedAt = 0, gfxRaisedAt = -1e9, perfLock = false;
@@ -4682,10 +4913,6 @@ function governor(rawDt, now) {
                 }
                 else if (g.on && g.tier > 0)
                     g.tier--;
-                else if (pr > .8) {
-                    prNext = Math.max(.8, +(pr - .15).toFixed(2));
-                    prChangedAt = now;
-                }
             }
         gfxChangedAt = now;
     }
@@ -4703,7 +4930,7 @@ function governor(rawDt, now) {
 document.addEventListener('visibilitychange', () => { perfHold(1500); last = performance.now(); sfx.pause(document.hidden || paused); });
 function frame(now) {
     requestAnimationFrame(frame);
-    if (online.active && !online.isHost && online.lastPacket && Date.now() - online.lastPacket > 11000) {
+    if (online.active && !online.finished && state !== 'ended' && !online.isHost && online.lastPacket && Date.now() - online.lastPacket > 20000) {
         online.lost('Player disconnected. Match ended.', 'disconnect');
     }
     const raw = (now - last) / 1000, dt = Math.min(.1, raw);
@@ -4719,11 +4946,11 @@ function frame(now) {
         prChanges++;
         renderer.setPixelRatio(prCur);
     }
-    if (online.active && online.isHost) {
+    if (online.active && !online.finished && online.isHost) {
         onlineSnapshotTimer += dt;
         if (onlineSnapshotTimer >= 1 / 30) {
             online.sendSnapshot(onlineSnapshot());
-            onlineSnapshotTimer = 0;
+            onlineSnapshotTimer %= 1 / 30;
         }
     }
     if (splashUp()) {
