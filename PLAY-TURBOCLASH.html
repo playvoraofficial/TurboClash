@@ -1057,7 +1057,7 @@ const MAX_DRIVE = 52, MAX_BOOST = 86, SUPERSONIC = 78, MAX_REV = 26;
 const BOOST_ACC = 52, AIR_BOOST = 50, BRAKE = 100, COAST = 10, BOOST_USE = 30;
 const REGEN_DELAY = 5, REGEN_RATE = 25;
 const OVERSPEED = 36;
-const JUMP_V = 12, JUMP_HOLD = 34, DOUBLE_V = 10.5, FLIP_V = 20, FLIP_DUR = 0.6;
+const JUMP_V = 12, JUMP_HOLD = 34, JUMP_HOLD_TIME = 0.3, FLIP_DUR = 0.6;
 const PITCH_R = 5.5, YAW_R = 4.2, ROLL_R = 6;
 const STEP = 1 / 120;
 const TEAM_COL = [0x1f6bff, 0xe3202b], TEAM_CSS = ['#4b97ff', '#ff4545'], TEAM_NAME = ['BLUE', 'RED'];
@@ -3009,40 +3009,10 @@ function updateCar(c, inp, dt) {
         c.airTime += dt;
         c.vel.y -= G * dt;
         if (c.holdJump) {
-            if (inp.jump && c.airTime < 0.2)
+            if (inp.jump && c.airTime < JUMP_HOLD_TIME)
                 c.vel.addScaledVector(c.jumpN, JUMP_HOLD * dt);
             else
                 c.holdJump = false;
-        }
-        if (jumpEdge && c.canFlip && c.airTime < 1.5 && c.stun <= 0) {
-            c.canFlip = false;
-            const fi = inp.pitch, si = inp.steer;
-            if (Math.abs(fi) + Math.abs(si) > 0.3) {
-                forwardOf(c, _a);
-                _b.set(1, 0, 0).applyQuaternion(c.q);
-                _up2.set(0, 1, 0).applyQuaternion(c.q);
-                if (_up2.y > .7) {
-                    _a.y = 0;
-                    _b.y = 0;
-                }
-                if (_a.lengthSq() < 0.01)
-                    _a.set(Math.sin(c.yaw), 0, Math.cos(c.yaw));
-                if (_b.lengthSq() < 0.01)
-                    _b.set(_a.z, 0, -_a.x);
-                _a.normalize();
-                _b.normalize();
-                _c.copy(_a).multiplyScalar(fi).addScaledVector(_b, si).normalize();
-                c.vel.addScaledVector(_c, FLIP_V);
-                c.vel.y *= 0.25;
-                c.flipAxis.set(fi, 0, -si).normalize();
-                c.flipping = true;
-                c.flipT = FLIP_DUR;
-                c.angVel.set(0, 0, 0);
-            }
-            else
-                c.vel.y = Math.max(c.vel.y, 0) + DOUBLE_V;
-            if (c.human)
-                sfx.jump();
         }
         if (c.flipping) {
             c.q.multiply(_q.setFromAxisAngle(c.flipAxis, Math.PI * 2 * dt / FLIP_DUR));
@@ -3648,34 +3618,19 @@ function botThink(c, dt) {
     const speed = c.vel.length();
     const kickoff = kickoffT < 3.5 && ball.vel.lengthSq() < .01 && Math.abs(ball.pos.x) < .1 && Math.abs(ball.pos.z) < .1;
     const st = c.ai.stage;
-    if (st && (st === 'flip' || st === 'dbl') && c.onGround)
-        c.ai.stage = null;
-    else if (st) {
+    if (st) {
         c.ai.t += dt;
         inp.throttle = 1;
         if (st === 'jump') {
             inp.jump = c.ai.t < c.ai.hold;
             if (c.ai.t > c.ai.hold + 0.05)
-                c.ai.stage = c.ai.opts.flip ? 'flip' : c.ai.opts.dbl ? 'dbl' : 'air', c.ai.t = 0;
-        }
-        else if (st === 'flip') {
-            inp.jump = true;
-            inp.pitch = c.ai.opts.pitch ?? 1;
-            inp.steer = c.ai.opts.steer ?? 0;
-            if (c.ai.t > 0.05)
-                c.ai.stage = 'air';
-            return;
-        }
-        else if (st === 'dbl') {
-            inp.jump = true;
-            if (c.ai.t > 0.05)
-                c.ai.stage = 'air';
+                c.ai.stage = 'air', c.ai.t = 0;
         }
         if (!c.onGround) {
             _qi.copy(c.q).invert();
             _a.subVectors(ball.pos, c.pos).applyQuaternion(_qi);
             const yawErr = Math.atan2(_a.x, _a.z), pitchErr = Math.atan2(_a.y, Math.hypot(_a.x, _a.z));
-            if (!c.flipping && c.ai.stage !== 'flip') {
+            if (!c.flipping) {
                 inp.steer = clamp(yawErr * 2.5, -1, 1);
                 inp.pitch = clamp(-pitchErr * 2.5, -1, 1);
                 _b.set(1, 0, 0).applyQuaternion(c.q);
@@ -3814,26 +3769,18 @@ function botThink(c, dt) {
         return;
     const hd = Math.hypot(ball.pos.x - c.pos.x, ball.pos.z - c.pos.z);
     const bAng = steerAng(c, ball.pos.x, ball.pos.y, ball.pos.z), by = ball.pos.y;
-    if (kickoff) {
-        if (D.flip && hd < 13 && Math.abs(bAng) < .3)
-            startJump(c, .05, { flip: true, pitch: 1, steer: 0 });
-        return;
-    }
+    if (kickoff) return;
     const goodSide = (ball.pos.z - c.pos.z) * ad > -2;
     if (hd < BR + 6 && Math.abs(bAng) < .7) {
-        if (by > 5.4 && by < 8.8)
-            startJump(c, .14);
-        else if (by >= 8.8 && by < 12.5 && D.dbl)
-            startJump(c, .2, { dbl: true });
-        else if (by <= 5.4 && D.flip && hd < BR + 5.5 && speed > 24 && goodSide && Math.abs(bAng) < .25 && Math.random() < D.flipChance)
-            startJump(c, .06, { flip: true, pitch: 1, steer: clamp(bAng * 2, -1, 1) });
+        if (by > 5.4 && by < 12.5)
+            startJump(c, by >= 8.8 ? .3 : .14);
     }
     else if (D.aerial && by > 12.5 && by < FH - 6 && hd < 20 && hd > 5 && c.boost > 30 && goodSide && Math.abs(bAng) < .35 && ball.vel.y < 6) {
-        startJump(c, .2, { aerial: true });
+        startJump(c, .3, { aerial: true });
     }
 }
 const keys = {};
-let mouseJump = false, padPrev = {}, ballCam = true, bcPitch = 0;
+let padPrev = {}, ballCam = true, bcPitch = 0;
 function setBallCam(on) {
     ballCam = on;
     const t = $('camTag');
@@ -3862,13 +3809,9 @@ addEventListener('keydown', e => {
 });
 addEventListener('keyup', e => { keys[e.code] = false; });
 addEventListener('blur', () => { for (const k in keys)
-    keys[k] = false; mouseJump = false;
+    keys[k] = false;
     if (online.active && !online.isHost) online.sendInput([0,0,0,0,0,0,0],++netSeq);
 });
-$('gl').addEventListener('mousedown', e => { if (e.button === 2)
-    mouseJump = true; });
-addEventListener('mouseup', e => { if (e.button === 2)
-    mouseJump = false; });
 addEventListener('contextmenu', e => e.preventDefault());
 function readPlayer(c) {
     const k = keys, inp = c.input;
@@ -3879,7 +3822,7 @@ function readPlayer(c) {
     inp.pitch = f;
     inp.steer = s;
     inp.roll = (k.KeyE ? 1 : 0) - (k.KeyQ ? 1 : 0);
-    inp.jump = !!(k.Space || mouseJump);
+    inp.jump = !!k.Space;
     inp.boost = !!(k.ShiftLeft || k.ShiftRight);
     inp.slide = !!k.KeyX;
     const gp = [...(navigator.getGamepads ? navigator.getGamepads() : [])].find(g => g && g.connected);
@@ -3896,7 +3839,6 @@ function readPlayer(c) {
             inp.roll = -1;
         if (b(5))
             inp.roll = 1;
-        inp.jump = inp.jump || b(0);
         inp.boost = inp.boost || b(1);
         inp.slide = inp.slide || b(2);
         if (b(9) && !padPrev.st)
