@@ -15,7 +15,6 @@ const rand = (a, b) => a + Math.random() * (b - a);
 function mulberry32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 const FW = 250, FL = 330, FH = 70, HW = FW / 2, HL = FL / 2;
 const GW = 60, GH = 22, GD = 24;
-// Leave the full goal frame visible instead of ending turf/glass at its centerline.
 const GOAL_POST_R = .6, GOAL_FRAME_CLEARANCE = GOAL_POST_R + .18;
 const GOAL_OPEN_HALF = GW / 2 + GOAL_FRAME_CLEARANCE;
 const RF = 11, RCORN = 45, GZ0 = HL - RF - 1;
@@ -138,8 +137,6 @@ const HDR_OK = (() => {
     }
 })();
 const renderer = new THREE.WebGLRenderer({ canvas: $('gl'), antialias: true, powerPreference: 'high-performance' });
-// Keep a full CSS-resolution image even on the lowest quality tier. A small
-// amount of supersampling helps distant silhouettes on standard-DPI screens.
 function renderPixelRatio() {
     return Math.max(1, Math.min(2, Math.max(1.25, devicePixelRatio || 1),
         Math.sqrt(3600000 / Math.max(1, innerWidth * innerHeight))));
@@ -832,8 +829,6 @@ function sweepGeo(path, prof, K, filter, uS, uV, vOff = 0) {
     g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
     return g;
 }
-// Unfold the walls and bends outward from the ceiling's X/Z lattice.
-// Shared border vertices therefore sample exactly the same hexagon edges.
 function glassShellGeo(path, half, K = 12) {
     const pos = [], nor = [], uv = [], part = [];
     const wallTop = FH - RF, bendLength = RF * Math.PI / 2;
@@ -881,7 +876,6 @@ function glassRoofGeo(path) {
     for (let i = 0; i < path.length - 1; i++) {
         const a = path[i], b = path[i + 1];
         if (Math.hypot(b.x - a.x, b.z - a.z) < 1e-6) continue;
-        // Use the shell's exact border, including every straight and corner segment.
         const ax = a.x + a.mx * RF, az = a.z + a.mz * RF;
         const bx = b.x + b.mx * RF, bz = b.z + b.mz * RF;
         pos.push(0, FH, 0, ax, FH, az, bx, FH, bz);
@@ -951,7 +945,6 @@ function buildArena() {
             for (const sx of [-1, 1]) {
                 const x0 = sx * GOAL_OPEN_HALF, J = K, pts = [];
                 for (let j = 0; j <= J; j++) {
-                    // Share the ramp's exact angular samples so its end has no cracks.
                     const [u, h] = floorFil(j);
                     pts.push([sz * (HL - u), h]);
                 }
@@ -995,7 +988,6 @@ function buildArena() {
           vec3 V = cameraPosition - vW;
           float dist = length(V);
           float fres = pow(clamp(1.0 - abs(dot(normalize(vN), V / dist)), 0.0, 1.0), 3.0);
-          // Keep the roof net visible at every distance; preserve the wall fade.
           float nearK = 1.0 - 0.65 * smoothstep(60.0, 260.0, dist) * (1.0 - step(0.5, vRoofPart));
           vec3 bv = vW - uBall;
           float ballK = exp(-dot(bv, bv) / 500.0);
@@ -1018,7 +1010,6 @@ function buildArena() {
         scene.add(shell);
     }
     const cg = glassRoofGeo(path);
-    // Reuse the original wall net's hexes, line width, glow, opacity and colors.
     const ceilNet = glassMat(0x9ac0ff, 1, .5);
     ceilNet.uniforms.uRedRoof = { value: new THREE.Color(0xff9a9a) };
     ceilNet.fragmentShader = ceilNet.fragmentShader
@@ -1154,7 +1145,6 @@ function buildStadium() {
         const r = ribbonGeo(BACK - .06, TOP_U + .25, SUITE_Y - .2, 18);
         scene.add(new THREE.Mesh(geoFrom(r.pos, r.uv), new THREE.MeshBasicMaterial({ map: makeSuiteTex(), color: hdr(0xffffff, 1.8), side: THREE.DoubleSide })));
     }
-    // Third-tier front advertising fascia: match the Playvora / TurboClash LED panels on lower tiers.
     {
         const r = ribbonGeo(O3 - .12, SUITE_Y + .1, H3 + 2.8, 60);
         const t = ledBase.clone();
@@ -1511,8 +1501,6 @@ function updateParts(dt) {
     pGeo.attributes.color.needsUpdate = true;
 }
 function makeNameTag(text, col) {
-    // CSS text is rasterized at the browser's actual screen resolution, not
-    // onto a low-res THREE.Sprite or into the postprocessing blur pipeline.
     const el = document.createElement('div');
     el.className = 'tcNameTag';
     el.textContent = text;
@@ -1673,7 +1661,6 @@ function classicBallMaterial() {
     const m = new THREE.MeshPhysicalMaterial({ map: ballMap, bumpMap: ballBump,
         bumpScale: .38, roughness: .34, metalness: 0, clearcoat: .55,
         clearcoatRoughness: .22, envMapIntensity: 1.05 });
-    // Subpixel seams must become smooth shading, not sparkling normals.
     m.onBeforeCompile = sh => {
         sh.fragmentShader = sh.fragmentShader.replace('#include <normal_fragment_maps>',
             `#ifdef USE_BUMPMAP
@@ -1925,7 +1912,6 @@ function updateCar(c, inp, dt) {
         const turn = lerp(3.9, 1.9, Math.min(sp / MAX_BOOST, 1)) * speedTurn * (inp.slide ? 1.35 : 1);
         c.fwd.applyAxisAngle(n, c.steerSmooth * turn * dt * (oldForwardSpeed >= 0 ? 1 : -1));
         c.fwd.addScaledVector(n, -c.fwd.dot(n)).normalize();
-        // Resolve the existing momentum into the NEW steering direction.
         _lv.crossVectors(n, c.fwd).normalize();
         let vf = c.vel.dot(c.fwd), vs = c.vel.dot(_lv);
         const t = wantBoost ? 1 : inp.throttle;
@@ -2204,8 +2190,6 @@ function collideSeg(p, v, a, b, rad) {
 const postA = new V3(), postB = new V3(), _bn = new V3(), _sbn = new V3();
 const _rollN = new V3(), _rollAxis = new V3(), _rollQ = new Q4();
 function updateRollingSpin(p, v, spin) {
-    // Rolling follows the actual contact plane, including the curved ramps.
-    // Keep angular momentum when the ball leaves the surface or bounces away.
     if (arenaD(p.x, p.y, p.z) <= BR + .12) {
         arenaN(p, _rollN);
         if (v.dot(_rollN) <= .8) spin.crossVectors(_rollN, v).multiplyScalar(1 / BR);
@@ -2277,10 +2261,7 @@ function stepBall(dt) {
     const sp = v.length();
     if (sp > BALL_MAX)
         v.multiplyScalar(BALL_MAX / sp);
-    // Update before snapshots/replay recording, independently of render frequency.
     stepBallRotation(dt);
-    // Score according to which goal the ball crossed, not who touched it last.
-    // A defender knocking it into their own goal awards a point to the opponent.
     if (Math.abs(p.z) > HL + BR * .95 && state === 'play' && !netGuest()) {
         const scoringTeam = p.z > 0 ? 0 : 1;
         onGoal(scoringTeam);
@@ -2304,8 +2285,6 @@ function simBall(p, v, h) {
         v.y -= (v.y - _sbn.y * vn2) * f;
         v.z -= (v.z - _sbn.z * vn2) * f;
     }
-    // Match the actual goal-frame rebounds when predicting bot intercepts and
-    // extrapolating a ball received over the network.
     if (Math.abs(p.z) > HL - BR - 1) {
         const s = Math.sign(p.z) || 1;
         forecastPost(p, v, -GW / 2, 0, s * HL, -GW / 2, GH, s * HL);
@@ -2315,9 +2294,6 @@ function simBall(p, v, h) {
     const speed = v.length();
     if (speed > BALL_MAX) v.multiplyScalar(BALL_MAX / speed);
 }
-// Forecast an unobstructed shot using the same 120 Hz ball dynamics as gameplay.
-// Only car collisions are omitted: the question is whether this exact car hit
-// prevented a ball that would otherwise have crossed the goal line.
 const _gp = new V3(), _gv = new V3(), _gn = new V3();
 const GOAL_FORECAST_STEPS = Math.ceil(10 / STEP);
 const GOAL_FORECAST_DRAG = Math.exp(-BALL_AIR_DRAG * STEP);
@@ -2377,8 +2353,6 @@ function carBall(c) {
     _d.subVectors(_a, _b);
     let dist = _d.length();
     if (dist >= BR) return;
-    // The ball really overlapped the car's collision box. Sustained contact
-    // counts once, rather than awarding another touch every 0.12 seconds.
     const newTouch = simTime - c.lastBallContact > .04;
     c.lastBallContact = simTime;
     _bvPrev.copy(ball.vel);
@@ -2408,10 +2382,8 @@ function carBall(c) {
             sfx.hit(impactSpeed);
             if (impactSpeed > 45) shake = Math.max(shake, .25);
         }
-        // Give a strike contact-driven spin, not a different random spin every hit.
         ball.spin.copy(_d).cross(_c).multiplyScalar(.06);
     }
-    // The online host is the single authority for statistics and goal credit.
     if (state !== 'play' || netGuest()) return;
     if (newTouch) {
         c.stats.touches++;
@@ -2423,8 +2395,6 @@ function carBall(c) {
         const ad = c.team === 0 ? 1 : -1;
         const before = goalBound(ball.pos, _bvPrev);
         const after = goalBound(ball.pos, ball.vel);
-        // A save only happens if this contact changes a would-be own-goal
-        // trajectory into one that will NOT cross that goal line.
         if (before === -ad && after !== -ad && simTime - c.lastSave > .6) {
             c.lastSave = simTime;
             c.stats.saves++;
@@ -2785,7 +2755,6 @@ addEventListener('contextmenu', e => e.preventDefault());
 function readPlayer(c) {
     const k = keys, inp = c.input;
     const f = (k.KeyW || k.ArrowUp ? 1 : 0) - (k.KeyS || k.ArrowDown ? 1 : 0);
-    // Restore the game's original turn direction (previous update reversed it).
     const s = (k.KeyA || k.ArrowLeft ? 1 : 0) - (k.KeyD || k.ArrowRight ? 1 : 0);
     inp.throttle = f;
     inp.pitch = f;
@@ -2987,8 +2956,6 @@ function netSampleWorld(dt) {
         const span = (b.ht-a.ht) * (b.state === 'goal' && b.goalT > 2 ? .35 : 1);
         _sampleSpin.fromArray(a.ball.spin).add(_netVel.fromArray(b.ball.spin)).multiplyScalar(.5);
         if (span * _sampleSpin.length() > Math.PI) {
-            // Lost packets can hide more than half a turn. Use angular velocity
-            // to retain the direction, then reconcile to the received end pose.
             _spinEndQ.copy(_netQ);
             rotateBall(_spinEndQ, _sampleSpin, span);
             _spinCorrectionQ.copy(_spinEndQ).invert().premultiply(_sampleQ);
@@ -3003,14 +2970,11 @@ function netSampleWorld(dt) {
         updateRollingSpin(_nbp,_nbv,ball.spin);
         if (hasRotation) rotateBall(_netQ,ball.spin,h);
     }
-    // Smooth the one transition back from a locally predicted strike. Ordinary
-    // snapshots are sampled directly and do not accumulate correction offsets.
     if (netTouchUntil > 0 && !reset) netSetPos(ball,_nbp);
     else ball.pos.copy(_nbp);
     netTouchUntil = 0;
     if (reset && ball.nvo) ball.nvo.set(0,0,0);
     ball.vel.copy(_nbv);
-    // Position and orientation use the same sampled time; no second rotation lag.
     if (hasRotation) ball.q.copy(_netQ);
 }
 function onlineSnapshot() {
@@ -3058,8 +3022,6 @@ function onlineApplySnapshot(snap) {
     updateScoreHud();
     $('clock').classList.toggle('ot', overtime);
     const scorerIdx = cars.findIndex(c => c.netSeat === snap.scorerSeat);
-    // Goal celebrations are events, not local physics predictions. A monotonic
-    // host goal ID lets each client show the same goal exactly once.
     if (Number.isInteger(snap.goalId) && snap.goalId > netSeenGoalId) {
         netSeenGoalId = snap.goalId;
         lastGoalTeam = snap.goalTeam;
@@ -3076,7 +3038,7 @@ function onlineApplySnapshot(snap) {
     }
     if (snap.state === 'replay') {
         const source = netReplaySources.get(snap.goalId);
-        if (!source) { state = 'goal'; return; } // Never play locally predicted frames.
+        if (!source) { state = 'goal'; return; }
         if (state !== 'replay' || !replay || replay.id !== snap.goalId ||
             replay.final !== !!snap.replayFinal) {
             lastGoalTeam = snap.goalTeam;
@@ -3126,8 +3088,6 @@ function onlineApplySnapshot(snap) {
             let past = null;
             if (Number.isInteger(data.ack) && netSent.has(data.ack))
                 past = netHistAt(netSent.get(data.ack) + clamp(+data.ackAge || 0, 0, .5));
-            // With no matching history, compare to a short estimate of the
-            // current host position rather than pulling the car into the past.
             if (!past) _netPos.addScaledVector(_netVel,lead);
             const refP = past ? past.p : c.pos, refV = past ? past.v : c.vel;
             _netErr.copy(_netPos).sub(refP);
@@ -3144,12 +3104,9 @@ function onlineApplySnapshot(snap) {
                 _nv.copy(_netVel).sub(refV).multiplyScalar(k);
                 netSetPos(c, _nt.copy(c.pos).add(_netErr));
                 c.vel.add(_nv);
-                // Rebase history too, so consecutive acknowledgements cannot
-                // apply the same positional correction over and over.
                 for (const h of netHist) { h.p.add(_netErr); h.v.add(_nv); }
             }
         } else if (live && !phaseChanged) {
-            // Remote cars are interpolated together with the ball in update().
         } else {
             c.pos.copy(_netPos); c.vel.copy(_netVel); c.q.copy(_netQ);
             if (c.nvo) c.nvo.set(0, 0, 0);
@@ -3170,7 +3127,6 @@ function onlineApplySnapshot(snap) {
             c.boosting = !!data.boosting; c.onGround = !!data.onGround;
             c.supersonic = !!data.supersonic;
         } else {
-            // A delayed grounded flag must not cancel a just-predicted jump.
             c.boost = clamp(lerp(c.boost,data.boost,.25),0,100);
         }
         if (!predicted) { c.input.steer = data.steer; c.steerSmooth = lerp(c.steerSmooth,data.steer,.45); }
@@ -3282,8 +3238,6 @@ function onGoal(team) {
     lastGoalTeam = team;
     const ownGoalBy = lastToucher && lastToucher.team !== team ? lastToucher : null;
     lastOwnGoalBy = ownGoalBy ? ownGoalBy.name : null;
-    // Credit the last attacking player, if known. In 1v1, the only opponent
-    // receives the goal stat even if they never touched the own-goal play.
     const attackers = cars.filter(c => c.team === team);
     const scorer = lastTouch[team] || (ownGoalBy && attackers.length === 1 ? attackers[0] : null);
     replayScorer = scorer ? cars.indexOf(scorer) : -1;
@@ -3736,7 +3690,7 @@ function updateCoinUI() {
 }
 const storeUI = (() => {
     const cv = $('storeView');
-    let r2 = null, pscene, pcam, turntable, ring, viewCar = null, open = false, raf = 0, showTok = 0, thumbJob = null, thumbTick = 0, openedAt = 0;
+    let r2 = null, pscene, pcam, turntable, ring, glow, viewCar = null, open = false, raf = 0, showTok = 0, thumbJob = null, thumbTick = 0, openedAt = 0;
     let sel = STORE.equipped, filter = 'all', from = 'choosePlay', kind = 'car';
     const thumbs = Object.assign({}, window.TC_THUMBS || {}), thumbQ = [];
     const KIND = {
@@ -3822,7 +3776,7 @@ const storeUI = (() => {
         ring.rotation.x = Math.PI / 2;
         ring.position.y = .02;
         turntable.add(ring);
-        const glow = new THREE.Mesh(new THREE.RingGeometry(4.5, 6.2, 72), new THREE.MeshBasicMaterial({ color: 0x4b97ff, transparent: true, opacity: .12, depthWrite: false, toneMapped: false }));
+        glow = new THREE.Mesh(new THREE.RingGeometry(4.5, 6.2, 72), new THREE.MeshBasicMaterial({ color: 0x4b97ff, transparent: true, opacity: .12, depthWrite: false, toneMapped: false }));
         glow.rotation.x = -Math.PI / 2;
         glow.position.y = -.25;
         pscene.add(glow);
@@ -3884,7 +3838,13 @@ const storeUI = (() => {
         turntable.rotation.y = 0;
         TARGET.y = KIND[k].target;
         placeCam(.85, k === 'ball' ? .22 : .3, k === 'ball' ? 7.6 : 9.2);
+        const rarityColor = RARITY[KIND[k].by[id].rarity].css;
+        const oldRing = ring.material.color.clone(), oldGlow = glow.material.color.clone();
+        ring.material.color.set(rarityColor);
+        glow.material.color.set(rarityColor);
         r2.render(pscene, pcam);
+        ring.material.color.copy(oldRing);
+        glow.material.color.copy(oldGlow);
         const c = document.createElement('canvas');
         c.width = 240;
         c.height = 150;
@@ -3910,7 +3870,8 @@ const storeUI = (() => {
     function showSkin(id) {
         sel = id;
         const k = kind, s = KIND[k].by[id], tok = ++showTok;
-        ring.material.color.set(s.team ? 0x4b97ff : (s.accent ? s.accent[0] : 0xffffff));
+        ring.material.color.set(RARITY[s.rarity].css);
+        glow.material.color.set(RARITY[s.rarity].css);
         $('svName').textContent = s.name;
         $('svRarity').textContent = RARITY[s.rarity].name;
         $('svRarity').style.color = RARITY[s.rarity].css;
@@ -4166,8 +4127,6 @@ function update(dt) {
                     if (player && ball.active && state === 'play') {
                         const before=player.lastBallContact;
                         carBall(player);
-                        // Predict only a fresh local strike, for a bounded time.
-                        // Merely being near the ball never hides host updates.
                         if (player.lastBallContact !== before && simTime-before > .04 && now-netTouchAt > .25) {
                             netTouchAt=now;
                             netTouchUntil=now+clamp(netRtt*.7+.05,.08,.18);
@@ -4237,7 +4196,7 @@ function update(dt) {
         if (goalT <= 0) {
             if (online.active && online.isHost && lastGoalReplay && !netAllReplayReady()) {
                 if (performance.now() - netReplaySentAt < 6000) return;
-                lastGoalReplay = null; // Skip for everyone, never show different recordings.
+                lastGoalReplay = null;
             }
             const final = !attract && matchOverAfterGoal && scoreArr[0] !== scoreArr[1];
             if (attract || !startReplay(final))
@@ -4585,7 +4544,6 @@ const POST = (() => {
     }
     return { st, info, warm, render };
 })();
-// Project each car's world position onto the unfiltered HTML HUD every frame.
 const _tagScreen = new V3();
 function updateNameTags() {
     const show = !attract && !!player && state !== 'ended' && !paused &&
@@ -4596,7 +4554,6 @@ function updateNameTags() {
         if (!el) continue;
         if (!show) { el.style.display = 'none'; continue; }
         _tagScreen.copy(c.mesh.position);
-        // World-up positioning keeps the label above the vehicle during flips.
         _tagScreen.y += 3.5;
         const distance = camera.position.distanceTo(_tagScreen);
         _tagScreen.project(camera);
@@ -4788,7 +4745,6 @@ const bctx = $('boostC').getContext('2d');
 let lastBoostKey = '';
 function drawBoost(b, idle, boosting) {
     const v = Math.round(b), label = boosting || v >= 100 ? 'BOOST' : idle < REGEN_DELAY ? `RECHARGE ${Math.ceil(REGEN_DELAY - idle)}s` : 'RECHARGING';
-    // Boost reserve: blue -> yellow -> orange -> red as the tank drains.
     const colors = v >= 75 ? ['#9fdcff', '#2f6bff'] :
         v >= 50 ? ['#fff3a3', '#ffd54a'] :
         v >= 25 ? ['#ffd0a0', '#ff8a24'] : ['#ffb0b0', '#ff3b3b'];
